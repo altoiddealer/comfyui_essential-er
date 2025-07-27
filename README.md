@@ -10,7 +10,7 @@ Slightly enhanced versions of [ComfyUI-essentials](https://github.com/cubiq/Comf
 
 ## Included Nodes
 
-**Smart Resize Image**
+### Smart Resize Image
 
 The only difference between **Smart Resize Image** and *Image Resize+** is the logic for the **`keep_proportions`** option.
 

@@ -32,28 +32,46 @@ class SmartImageResize:
         if keep_proportion:
             method = "keep proportion"
 
-        if method == 'keep proportion' or method == 'pad':
-            if width == 0 and oh < height:
-                width = MAX_RESOLUTION
-            elif width == 0 and oh >= height:
-                width = ow
+        if method == 'stretch':
+            new_width = width if width > 0 else ow
+            new_height = height if height > 0 else oh
 
-            if height == 0 and ow < width:
-                height = MAX_RESOLUTION
-            elif height == 0 and ow >= width:
-                height = oh
+        elif method == 'keep proportion':
             avg = avg_from_dims(width, height)
             n, d = ar_parts_from_dims(ow, oh)
-            new_width, new_height = dims_from_ar(avg, n, d, multiple_of)
+            width, height = dims_from_ar(avg, n, d, multiple_of)
 
-            if method == 'pad':
-                pad_left = (width - new_width) // 2
-                pad_right = width - new_width - pad_left
-                pad_top = (height - new_height) // 2
-                pad_bottom = height - new_height - pad_top
-
+            ratio = max(width / ow, height / oh)
+            new_width = round(ow*ratio)
+            new_height = round(oh*ratio)
+            x = (new_width - width) // 2
+            y = (new_height - height) // 2
+            x2 = x + width
+            y2 = y + height
+            if x2 > new_width:
+                x -= (x2 - new_width)
+            if x < 0:
+                x = 0
+            if y2 > new_height:
+                y -= (y2 - new_height)
+            if y < 0:
+                y = 0
             width = new_width
             height = new_height
+
+        elif method == 'pad':
+            width = width if width > 0 else ow
+            height = height if height > 0 else oh
+
+            ratio = min(width / ow, height / oh)
+            new_width = round(ow * ratio)
+            new_height = round(oh * ratio)
+
+            pad_left = (width - new_width) // 2
+            pad_right = width - new_width - pad_left
+            pad_top = (height - new_height) // 2
+            pad_bottom = height - new_height - pad_top
+
         elif method.startswith('fill'):
             width = width - (width % multiple_of)
             height = height - (height % multiple_of)
@@ -75,11 +93,11 @@ class SmartImageResize:
                 y -= (y2 - new_height)
             if y < 0:
                 y = 0
-            width = new_width
-            height = new_height
         else:
-            width = width if width > 0 else ow
-            height = height if height > 0 else oh
+            raise ValueError(f"Unknown method: {method}")
+
+        width = new_width
+        height = new_height
 
         if "always" in condition \
             or ("downscale if bigger" == condition and (oh > height or ow > width)) or ("upscale if smaller" == condition and (oh < height or ow < width)) \

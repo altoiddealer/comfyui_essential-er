@@ -10,10 +10,10 @@ Slightly enhanced versions of [ComfyUI-essentials](https://github.com/cubiq/Comf
 
 ## Included Nodes
 
-### Smart Resize Image
+### Smart Image Resize
 
-The only difference between **Smart Resize Image** and **Image Resize+** is the logic for the **`keep_proportions`** option.
+The only difference between **Smart Image Resize** and **Image Resize+** is the logic for the **`keep_proportions`** option.
 
-In **Smart Resize Image** the result has the closest matching megapixels count to the average **width** and **height** values - instead of making one dimension match an input and scaling the other down (which results in undesirable resolutions)
+In **Smart Image Resize** the result has the closest matching megapixels count to the average **width** and **height** values - instead of making one dimension match an input and scaling the other down (which results in undesirable resolutions)
 
 <img width="1037" height="574" alt="Screenshot 2025-07-27 134150" src="https://github.com/user-attachments/assets/5d27b7b5-9be6-40ca-ba9a-e1874afc65a3" />

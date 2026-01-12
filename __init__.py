@@ -1,6 +1,6 @@
 from .image import SmartImageResizeAlt
 
-NODE_CLASS_MAPPINGS = { "SmartImageResize": SmartImageResizeAlt }
+NODE_CLASS_MAPPINGS = { "SmartImageResizeAlt": SmartImageResizeAlt }
 
 NODE_DISPLAY_NAME_MAPPINGS = { "SmartImageResizeAlt": "🔧 Smart Image Resize Alt ◯" }
 

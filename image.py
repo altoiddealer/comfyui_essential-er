@@ -4,7 +4,7 @@ import comfy.utils
 import torch
 import torch.nn.functional as F
 
-class SmartImageResize:
+class SmartImageResizeAlt:
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -136,9 +136,9 @@ class SmartImageResize:
         return(outputs, outputs.shape[2], outputs.shape[1],)
 
 IMAGE_CLASS_MAPPINGS = {
-    "SmartImageResize": SmartImageResize,
+    "SmartImageResizeAlt": SmartImageResizeAlt,
 }
 
 IMAGE_NAME_MAPPINGS = {
-    "SmartImageResize": "🔧 Smart Image Resize",
+    "SmartImageResizeAlt": "🔧 Smart Image Resize Alt ◯",
 }

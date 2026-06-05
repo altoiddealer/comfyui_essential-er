@@ -1,0 +1,329 @@
+{
+  "id": "287b647f-6f75-47ec-a312-2aef32334f58",
+  "revision": 0,
+  "last_node_id": 593,
+  "last_link_id": 949,
+  "nodes": [
+    {
+      "id": 592,
+      "type": "Note",
+      "pos": [
+        -728.5980820927842,
+        1921.2161066259316
+      ],
+      "size": [
+        296.8129513082526,
+        88
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "Path to directory containing video clips"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 462,
+      "type": "LoadVideosFromFolder",
+      "pos": [
+        -737.1123109097509,
+        2066.4091017911646
+      ],
+      "size": [
+        551.9025170227407,
+        282.05760042158226
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            889
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-kjnodes",
+        "ver": "a41e0d85b822ddc4bbd1256417aa2d58d39e94ce",
+        "Node name for S&R": "LoadVideosFromFolder"
+      },
+      "widgets_values": [
+        "D:\\0_AI\\ComfyUI-Easy-Install\\ComfyUI\\output\\WAN\\2026-06-03_17-11-26",
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        "batch",
+        4,
+        false
+      ]
+    },
+    {
+      "id": 593,
+      "type": "Note",
+      "pos": [
+        -106.26348940442924,
+        1866.0941333940157
+      ],
+      "size": [
+        316.6469224322581,
+        167.33619659716783
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "All clips need to be collected to a list of image batches.\n\nComfy Core's Rebatch Images will do the trick, so long as all clips are the same length.\n\nIf clips have varying length, you will need to collect the list using a different strategy"
+      ],
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 561,
+      "type": "RebatchImages",
+      "pos": [
+        -56.041230753811746,
+        2086.8397478566894
+      ],
+      "size": [
+        217.09446012246963,
+        58
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 889
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": [
+            942
+          ]
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfy-core",
+        "ver": "0.23.0",
+        "Node name for S&R": "RebatchImages"
+      },
+      "widgets_values": [
+        81
+      ]
+    },
+    {
+      "id": 590,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        690.7988721293281,
+        2073.6788192911495
+      ],
+      "size": [
+        405.42353188177185,
+        334
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 943
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        },
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "title": "Video Final",
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "4c7858ddd5126f7293dc3c9f6e0fc4c263cde079",
+        "Node name for S&R": "VHS_VideoCombine",
+        "ttNbgOverride": {
+          "color": "#2a363b",
+          "bgcolor": "#3f5159",
+          "groupcolor": "#3f789e"
+        },
+        "ue_properties": {
+          "version": "7.0.1",
+          "widget_ue_connectable": {
+            "frame_rate": true,
+            "loop_count": true,
+            "filename_prefix": true,
+            "format": true,
+            "pingpong": true,
+            "save_output": true
+          }
+        }
+      },
+      "widgets_values": {
+        "frame_rate": 16,
+        "loop_count": 0,
+        "filename_prefix": "Interpolated",
+        "format": "video/nvenc_h264-mp4",
+        "pix_fmt": "yuv420p",
+        "bitrate": 10,
+        "megabit": true,
+        "save_metadata": true,
+        "pingpong": false,
+        "save_output": false,
+        "videopreview": {
+          "hidden": true,
+          "paused": false,
+          "params": {
+            "filename": "Interpolated_00001.mp4",
+            "subfolder": "",
+            "type": "temp",
+            "format": "video/nvenc_h264-mp4",
+            "frame_rate": 16,
+            "workflow": "Interpolated_00001.png",
+            "fullpath": "D:\\0_AI\\ComfyUI-Easy-Install\\ComfyUI\\temp\\Interpolated_00001.mp4"
+          },
+          "muted": false
+        }
+      },
+      "color": "#232",
+      "bgcolor": "#353",
+      "shape": 1
+    },
+    {
+      "id": 589,
+      "type": "MergeImageBatchList",
+      "pos": [
+        295.5132703827247,
+        2079.6539873276383
+      ],
+      "size": [
+        286.480078125,
+        106
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 942
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            943
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "altoiddealer/comfyui_essential-er",
+        "ver": "02ccd5112e2b85325bc56abb8fac702457c6b9d2",
+        "Node name for S&R": "MergeImageBatchList"
+      },
+      "widgets_values": [
+        5,
+        "source",
+        "linear_blend"
+      ]
+    }
+  ],
+  "links": [
+    [
+      7,
+      1,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      889,
+      462,
+      0,
+      561,
+      0,
+      "IMAGE"
+    ],
+    [
+      942,
+      561,
+      0,
+      589,
+      0,
+      "IMAGE"
+    ],
+    [
+      943,
+      589,
+      0,
+      590,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "workflowRendererVersion": "LG",
+    "ds": {
+      "scale": 0.9778105095887312,
+      "offset": [
+        976.9035328345465,
+        -1550.3604283367226
+      ]
+    },
+    "frontendVersion": "1.44.19",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

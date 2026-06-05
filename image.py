@@ -346,5 +346,5 @@ IMAGE_CLASS_MAPPINGS = {
 
 IMAGE_NAME_MAPPINGS = {
     "SmartImageResizeAlt": "🔧 Smart Image Resize Alt ◯",
-    "MergeImageBatchList": "🔧 MergeImageBatchList ◯",
+    "MergeImageBatchList": "🔧 Merge Image Batch List ◯",
 }

@@ -1,12 +1,16 @@
 from comfy_api.latest import ComfyExtension
 
 from .image import SmartImageResizeAlt
+from .image_batches import MergeImageBatchList
 
 
-class SmartImageResizeAltExtension(ComfyExtension):
+class MyExtension(ComfyExtension):
     async def get_node_list(self) -> list[type]:
-        return [SmartImageResizeAlt]
+        return [
+            SmartImageResizeAlt,
+            MergeImageBatchList,
+        ]
 
 
-async def comfy_entrypoint() -> SmartImageResizeAltExtension:
-    return SmartImageResizeAltExtension()
+async def comfy_entrypoint() -> MyExtension:
+    return MyExtension()

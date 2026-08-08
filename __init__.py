@@ -1,11 +1,16 @@
-from .image import SmartImageResizeAlt, MergeImageBatchList
+from comfy_api.latest import ComfyExtension
 
-NODE_CLASS_MAPPINGS = {"SmartImageResizeAlt": SmartImageResizeAlt,
-                       "MergeImageBatchList": MergeImageBatchList,
-                       }
+from .image import SmartImageResizeAlt
+from .image_batches import MergeImageBatchList
 
-NODE_DISPLAY_NAME_MAPPINGS = {"SmartImageResizeAlt": "🔧 Smart Image Resize Alt ◯",
-                              "MergeImageBatchList": "🔧 Merge Image Batch List ◯",
-                              }
 
-__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
+class MyExtension(ComfyExtension):
+    async def get_node_list(self) -> list[type]:
+        return [
+            SmartImageResizeAlt,
+            MergeImageBatchList,
+        ]
+
+
+async def comfy_entrypoint() -> MyExtension:
+    return MyExtension()

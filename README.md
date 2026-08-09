@@ -18,6 +18,19 @@ In **Smart Image Resize Alt** the result has the closest matching megapixels cou
 
 <img width="1037" height="574" alt="Screenshot 2025-07-27 134150" src="https://github.com/user-attachments/assets/5d27b7b5-9be6-40ca-ba9a-e1874afc65a3" />
 
+---
+
+### Load Videos From Folder List
+
+Based on **Load Videos From Folder** from [ComfyUI-KJNodes](https://github.com/kijai/ComfyUI-KJNodes).
+
+KJ's version outputs the merged images (all loaded videos are joined), which has very limited practicality.
+
+My version outputs both the video images ***and*** audio in lists which can be more easily processed.
+
+The following nodes are designed specifically to handle the outputs from **Load Videos From Folder List**.
+
+
 ### Merge Image Batch List
 
 Based on **Image Batch Extend With Overlap** from [ComfyUI-KJNodes](https://github.com/kijai/ComfyUI-KJNodes), which is used to join separate videos (image batches) using configurable joining strategies, and outputting an extended video.
@@ -26,5 +39,9 @@ Based on **Image Batch Extend With Overlap** from [ComfyUI-KJNodes](https://gith
 
 This can greatly simplify use cases for joining many similar clips together, where any numeber of clips can be loaded from a directory, Rebatched, and piped into this node, instead of manually loaded and daisy-chained into **Image Batch Extend With Overlap** nodes.
 
-<img width="1019" height="328" alt="Screenshot 2026-06-05 121610" src="https://github.com/user-attachments/assets/bfcbc9b3-f430-439d-a943-8bd626608c8b" />
 
+### Merge Image Batches and Audio Lists
+
+Same as above, but also handles audio!  The audio must be sourced from videos that share the same FPS, and that FPS must be specified in the node input widget.
+
+<img width="1577" height="888" alt="Screenshot 2026-08-08 232456" src="https://github.com/user-attachments/assets/5c59ec5b-61a2-4597-8adb-f12a9b80aeb2" />

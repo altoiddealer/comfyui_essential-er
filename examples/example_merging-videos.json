@@ -1,0 +1,397 @@
+{
+  "id": "9765ccd6-11ac-415f-a1ce-f3a3d946de70",
+  "revision": 0,
+  "last_node_id": 1735,
+  "last_link_id": 2392,
+  "nodes": [
+    {
+      "id": 1724,
+      "type": "MergeImageBatchAndAudioList",
+      "pos": [
+        -669.8627391624967,
+        999.3620269807393
+      ],
+      "size": [
+        436.99375,
+        150
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_batches_list",
+          "type": "IMAGE",
+          "link": 2379
+        },
+        {
+          "name": "audio_list",
+          "type": "AUDIO",
+          "link": 2380
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            2384
+          ]
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            2385
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "altoiddealer/comfyui_essential-er",
+        "ver": "ac5ae486feb519c4f5bcc9c30ffc5c519f59790e",
+        "Node name for S&R": "MergeImageBatchAndAudioList"
+      },
+      "widgets_values": [
+        24,
+        13,
+        "source",
+        "linear_blend"
+      ]
+    },
+    {
+      "id": 1727,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        -134.95193502712482,
+        1000.4331560505402
+      ],
+      "size": [
+        571.2429809570312,
+        334
+      ],
+      "flags": {
+        "collapsed": false
+      },
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2384
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": 2385
+        },
+        {
+          "name": "meta_batch",
+          "shape": 7,
+          "type": "VHS_BatchManager",
+          "link": null
+        },
+        {
+          "name": "vae",
+          "shape": 7,
+          "type": "VAE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": []
+        }
+      ],
+      "properties": {
+        "cnr_id": "comfyui-videohelpersuite",
+        "ver": "4c7858ddd5126f7293dc3c9f6e0fc4c263cde079",
+        "Node name for S&R": "VHS_VideoCombine",
+        "ttNbgOverride": {
+          "color": "#2a363b",
+          "bgcolor": "#3f5159",
+          "groupcolor": "#3f789e"
+        },
+        "ue_properties": {
+          "version": "7.0.1",
+          "widget_ue_connectable": {
+            "frame_rate": true,
+            "loop_count": true,
+            "filename_prefix": true,
+            "format": true,
+            "pingpong": true,
+            "save_output": true
+          }
+        }
+      },
+      "widgets_values": {
+        "frame_rate": 24,
+        "loop_count": 0,
+        "filename_prefix": "AnimateDiff",
+        "format": "video/nvenc_h264-mp4",
+        "pix_fmt": "yuv420p",
+        "bitrate": 10,
+        "megabit": true,
+        "save_metadata": false,
+        "pingpong": false,
+        "save_output": true,
+        "videopreview": {
+          "hidden": true,
+          "paused": true,
+          "params": {
+            "filename": "AnimateDiffEaseInOut_00001-audio.mp4",
+            "subfolder": "",
+            "type": "output",
+            "format": "video/nvenc_h264-mp4",
+            "frame_rate": 24,
+            "workflow": "AnimateDiffEaseInOut_00001.png",
+            "fullpath": "C:\\0_SD\\ComfyUI-Easy-Install\\ComfyUI\\output\\AnimateDiffEaseInOut_00001-audio.mp4"
+          },
+          "muted": false
+        }
+      },
+      "color": "#232",
+      "bgcolor": "#353",
+      "shape": 1
+    },
+    {
+      "id": 1733,
+      "type": "MarkdownNote",
+      "pos": [
+        -671.287017267959,
+        794.0345259709474
+      ],
+      "size": [
+        427.90047885549416,
+        105.42116736271294
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Merge Images + Audio",
+      "properties": {},
+      "widgets_values": [
+        "## Merges the lists, as configured\n\n## For audio: must be sourced from videos with same  FPS, and that FPS must be specified."
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 1715,
+      "type": "LoadVideosFromFolderList",
+      "pos": [
+        -1199.3871608332117,
+        999.0137299629232
+      ],
+      "size": [
+        440.98790851498586,
+        246.69880884357963
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image_batches_list",
+          "shape": 6,
+          "type": "IMAGE",
+          "links": [
+            2379
+          ]
+        },
+        {
+          "name": "audio_list",
+          "shape": 6,
+          "type": "AUDIO",
+          "links": [
+            2380
+          ]
+        }
+      ],
+      "properties": {
+        "aux_id": "altoiddealer/comfyui_essential-er",
+        "ver": "762a6982fc736993f458d572c88636ddb1d93ce4",
+        "Node name for S&R": "LoadVideosFromFolderList"
+      },
+      "widgets_values": [
+        "C:\\0_SD\\ComfyUI-Easy-Install\\ComfyUI\\output\\video",
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+        false
+      ]
+    },
+    {
+      "id": 1734,
+      "type": "MarkdownNote",
+      "pos": [
+        -1096.0413410084143,
+        622.940071365102
+      ],
+      "size": [
+        737.4633921028832,
+        88
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Dependency",
+      "properties": {},
+      "widgets_values": [
+        "# [ComfyUI-VideoHelperSuite](https://github.com/kosinkadink/ComfyUI-VideoHelperSuite) is required for these nodes to function\n\n"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 1732,
+      "type": "MarkdownNote",
+      "pos": [
+        -1192.691078575993,
+        794.624804791862
+      ],
+      "size": [
+        427.90047885549416,
+        105.42116736271294
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Load Videos From Folder List Alt ◯",
+      "properties": {},
+      "widgets_values": [
+        "## Loads all videos from a directory\n\n## Outputs lists of: image batches and audio (if any)"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 1735,
+      "type": "MarkdownNote",
+      "pos": [
+        -623.6608933518412,
+        1282.59553126935
+      ],
+      "size": [
+        318.8896260042568,
+        88
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Merge Images",
+      "properties": {},
+      "widgets_values": [
+        "## For merging lists of image batches only"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 1728,
+      "type": "MergeImageBatchList",
+      "pos": [
+        -593.6119639987711,
+        1430.318320031404
+      ],
+      "size": [
+        270,
+        106
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image_batches_list",
+          "type": "IMAGE",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": null
+        }
+      ],
+      "properties": {
+        "aux_id": "altoiddealer/comfyui_essential-er",
+        "ver": "ac5ae486feb519c4f5bcc9c30ffc5c519f59790e",
+        "Node name for S&R": "MergeImageBatchList"
+      },
+      "widgets_values": [
+        13,
+        "source",
+        "linear_blend"
+      ]
+    }
+  ],
+  "links": [
+    [
+      2379,
+      1715,
+      0,
+      1724,
+      0,
+      "IMAGE"
+    ],
+    [
+      2380,
+      1715,
+      1,
+      1724,
+      1,
+      "AUDIO"
+    ],
+    [
+      2384,
+      1724,
+      0,
+      1727,
+      0,
+      "IMAGE"
+    ],
+    [
+      2385,
+      1724,
+      1,
+      1727,
+      1,
+      "AUDIO"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "frontendVersion": "1.48.7",
+    "workflowRendererVersion": "LG",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true,
+    "ds": {
+      "scale": 0.9540334496962828,
+      "offset": [
+        1662.1553199148966,
+        -381.42454536040555
+      ]
+    }
+  },
+  "version": 0.4
+}

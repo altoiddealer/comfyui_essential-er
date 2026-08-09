@@ -60,7 +60,8 @@ class LoadVideosFromFolderList(io.ComfyNode):
             display_name="Load Videos From Folder List Alt ◯",
             description=(
                 "Loads all supported video files from a folder and "
-                "returns each video as a separate IMAGE batch."
+                "returns each video as a separate IMAGE batch, "
+                "along with matching audio."
             ),
             category="image/video",
             search_aliases=[
@@ -148,15 +149,18 @@ class LoadVideosFromFolderList(io.ComfyNode):
                 io.Boolean.Input(
                     "add_label",
                     default=False,
-                    tooltip=(
-                        "Add the filename above each video."
-                    ),
+                    tooltip="Add the filename above each video.",
                 ),
             ],
 
             outputs=[
                 io.Image.Output(
-                    display_name="image_batches",
+                    display_name="image_batches_list",
+                    is_output_list=True,
+                ),
+
+                io.Audio.Output(
+                    display_name="audio_list",
                     is_output_list=True,
                 ),
             ],
@@ -206,6 +210,7 @@ class LoadVideosFromFolderList(io.ComfyNode):
         vhs_load_video = cls._get_vhs_loader()
 
         loaded_videos = []
+        loaded_audio = []
 
         for filepath, filename in videos:
 
@@ -220,6 +225,7 @@ class LoadVideosFromFolderList(io.ComfyNode):
             )
 
             video_tensor = result[0]
+            audio = result[2]
 
             if add_label:
                 video_tensor = cls._add_label(
@@ -228,8 +234,12 @@ class LoadVideosFromFolderList(io.ComfyNode):
                 )
 
             loaded_videos.append(video_tensor)
+            loaded_audio.append(audio)
 
-        return io.NodeOutput(loaded_videos)
+        return io.NodeOutput(
+            loaded_videos,
+            loaded_audio,
+        )
 
     @staticmethod
     def _add_label(video_tensor, filename):

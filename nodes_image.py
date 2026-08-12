@@ -38,6 +38,12 @@ class ResizeImageMaskAlt(io.ComfyNode):
         "pad",
     ]
 
+    pad_colors = [
+        "black",
+        "gray",
+        "white",
+    ]
+
     conditions = [
         "always",
         "downscale if bigger",
@@ -143,6 +149,26 @@ class ResizeImageMaskAlt(io.ComfyNode):
             return input_tensor.movedim(1, -1)
 
         return input_tensor.squeeze(1)
+
+    @staticmethod
+    def pad_color_value(color):
+        """
+        Convert a pad color name to the normalized tensor value used by
+        ComfyUI IMAGE and MASK tensors.
+        """
+
+        values = {
+            "black": 0.0,
+            "gray": 0.5,
+            "white": 1.0,
+        }
+
+        try:
+            return values[color]
+        except KeyError:
+            raise ValueError(
+                f"Unsupported pad color: {color}"
+            )
 
     # ------------------------------------------------------------------
     # Core resize helper
@@ -1498,6 +1524,13 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         or pad_bottom
                     ):
 
+                        pad_value = cls.pad_color_value(
+                            resize_type.get(
+                                "color",
+                                "black",
+                            )
+                        )
+
                         samples = F.pad(
                             samples,
                             (
@@ -1506,7 +1539,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                                 pad_top,
                                 pad_bottom,
                             ),
-                            value=0,
+                            value=pad_value,
                         )
 
                 outputs = cls.finalize_image_mask_input(
@@ -2011,6 +2044,15 @@ class ResizeImageMaskAlt(io.ComfyNode):
                             "to this multiple."
                         ),
                         advanced=True,
+                    ),
+
+                    io.Combo.Input(
+                        "color",
+                        options=cls.pad_colors,
+                        default="black",
+                        tooltip=(
+                            "Color used for the padded area."
+                        ),
                     ),
                 ],
             ),

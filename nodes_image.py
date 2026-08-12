@@ -780,19 +780,19 @@ class ResizeImageMaskAlt(io.ComfyNode):
         source_height,
         megapixels,
         multiple_of,
+        megapixel_priority=1.0,
     ):
         """
-        Calculate dimensions near the requested megapixel target.
+        Calculate dimensions near the requested megapixel target while
+        balancing total-pixel accuracy against source aspect-ratio accuracy.
 
-        Without multiple_of:
-            Use the normal aspect-ratio-preserving calculation.
+        megapixel_priority:
+            1.0 = prioritize total-pixel accuracy.
+            0.0 = prioritize aspect-ratio accuracy.
+            Values between 0.0 and 1.0 blend the two priorities.
 
-        With multiple_of:
-            Search nearby multiple-compatible width/height pairs and
-            select the pair with the smallest total-pixel error.
-
-        Aspect-ratio error is used as the secondary comparison so that
-        two equally good area candidates favor the original AR.
+        When multiple_of is active, only dimension pairs that satisfy
+        the constraint are considered.
         """
 
         target_pixels = max(
@@ -824,6 +824,12 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 max(1, round(ideal_width)),
                 max(1, round(ideal_height)),
             )
+
+        # Keep the setting safely within its documented range.
+        megapixel_priority = max(
+            0.0,
+            min(1.0, float(megapixel_priority)),
+        )
 
         base_width = cls.round_to_multiple(
             ideal_width,
@@ -878,8 +884,15 @@ class ResizeImageMaskAlt(io.ComfyNode):
                     - aspect_ratio
                 ) / aspect_ratio
 
+                # Blend megapixel accuracy and aspect-ratio accuracy.
+                score = (
+                    megapixel_priority * area_error
+                    + (1.0 - megapixel_priority) * aspect_error
+                )
+
                 candidates.append(
                     (
+                        score,
                         area_error,
                         aspect_error,
                         width,
@@ -897,10 +910,11 @@ class ResizeImageMaskAlt(io.ComfyNode):
             key=lambda candidate: (
                 candidate[0],
                 candidate[1],
+                candidate[2],
             )
         )
 
-        _, _, width, height = candidates[0]
+        _, _, _, width, height = candidates[0]
 
         return width, height
 
@@ -909,16 +923,19 @@ class ResizeImageMaskAlt(io.ComfyNode):
         cls,
         input_tensor,
         megapixels,
-        scale_method,
+        megapixel_priority=1.0,
+        scale_method="area",
         multiple_of=0,
         crop="center",
     ):
         """
         Resize to approximately the requested megapixel count.
 
+        megapixel_priority controls the tradeoff between hitting the
+        requested megapixel count and preserving the source aspect ratio.
+
         When multiple_of is active, dimensions are selected directly
-        from nearby valid multiple-compatible rectangles instead of
-        resizing first and then arbitrarily rounding the result.
+        from nearby valid multiple-compatible rectangles.
         """
 
         is_type_image = cls.is_image(input_tensor)
@@ -937,6 +954,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 source_height,
                 megapixels,
                 multiple_of,
+                megapixel_priority,
             )
         )
 
@@ -1374,6 +1392,10 @@ class ResizeImageMaskAlt(io.ComfyNode):
             outputs = cls.scale_total_pixels(
                 input_tensor,
                 resize_type["megapixels"],
+                resize_type.get(
+                    "megapixel_priority",
+                    1.0,
+                ),
                 scale_method,
                 resize_type.get(
                     "multiple_of",
@@ -1681,11 +1703,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         options=cls.crop_methods,
                         default="center",
                         tooltip=(
-                            "How to handle the aspect-ratio mismatch "
-                            "created by the multiple constraint. "
-                            "'disabled' stretches; "
-                            "'center' preserves aspect ratio and "
-                            "center-crops."
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
                         ),
                     ),
                 ],
@@ -1725,11 +1745,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         options=cls.crop_methods,
                         default="center",
                         tooltip=(
-                            "How to handle the small aspect-ratio "
-                            "difference created by the multiple "
-                            "constraint. 'disabled' stretches; "
-                            "'center' preserves aspect ratio and "
-                            "center-crops."
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
                         ),
                     ),
                 ],
@@ -1769,11 +1787,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         options=cls.crop_methods,
                         default="center",
                         tooltip=(
-                            "How to handle the small aspect-ratio "
-                            "difference created by the multiple "
-                            "constraint. 'disabled' stretches; "
-                            "'center' preserves aspect ratio and "
-                            "center-crops."
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
                         ),
                     ),
                 ],
@@ -1812,11 +1828,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         options=cls.crop_methods,
                         default="center",
                         tooltip=(
-                            "How to handle the small aspect-ratio "
-                            "difference created by the multiple "
-                            "constraint. 'disabled' stretches; "
-                            "'center' preserves aspect ratio and "
-                            "center-crops."
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
                         ),
                     ),
                 ],
@@ -1855,11 +1869,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         options=cls.crop_methods,
                         default="center",
                         tooltip=(
-                            "How to handle the small aspect-ratio "
-                            "difference created by the multiple "
-                            "constraint. 'disabled' stretches; "
-                            "'center' preserves aspect ratio and "
-                            "center-crops."
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
                         ),
                     ),
                 ],
@@ -1876,7 +1888,11 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         step=0.01,
                         tooltip=(
                             "Target total megapixels. "
-                            "1.0 is approximately 1,048,576 pixels."
+                            "1.0 is approximately 1,048,576 pixels (≈ 1024×1024). "
+                            "Aspect ratio is preserved by default. "
+                            "Constraining the dimensions via multiple_of "
+                            "requires a tradeoff between megapixel and "
+                            "aspect-ratio precision."
                         ),
                     ),
 
@@ -1894,15 +1910,31 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         advanced=True,
                     ),
 
+                    io.Float.Input(
+                        "megapixel_priority",
+                        default=1.0,
+                        min=0.0,
+                        max=1.0,
+                        step=0.1,
+                        tooltip=(
+                            "While multiple_of > 0: "
+                            "Controls the tradeoff between hitting the "
+                            "target megapixel count and preserving the "
+                            "original aspect ratio. 1.0 prioritizes "
+                            "megapixel precision (default behavior); "
+                            "0.0 prioritizes aspect-ratio precision."
+                        ),
+                        advanced=True,
+                    ),
+
                     io.Combo.Input(
                         "crop",
                         options=cls.crop_methods,
                         default="center",
                         tooltip=(
-                            "How to handle the aspect-ratio mismatch "
-                            "created by the constrained dimensions. "
-                            "'disabled' stretches; 'center' preserves "
-                            "aspect ratio and center-crops."
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
                         ),
                     ),
                 ],
@@ -1941,8 +1973,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         options=cls.crop_methods,
                         default="center",
                         tooltip=(
-                            "How to handle aspect-ratio mismatch "
-                            "when matching the reference size."
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
                         ),
                     ),
                 ],
@@ -1969,8 +2002,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         options=cls.crop_methods,
                         default="center",
                         tooltip=(
-                            "How to handle aspect-ratio mismatch "
-                            "when matching the reference size."
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
                         ),
                     ),
                 ],

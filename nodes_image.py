@@ -979,14 +979,18 @@ class ResizeImageMaskAlt(io.ComfyNode):
         input_tensor,
         multiple,
         scale_method,
+        crop="center",
     ):
         """
-        Native-style "scale to multiple".
+        Resize so both dimensions are divisible by the specified multiple.
 
-        This operation has its own multiple because the multiple is the
-        defining parameter of the operation.
+        crop="disabled":
+            Resize directly to the independently floored dimensions,
+            allowing aspect-ratio distortion.
 
-        It deliberately does NOT use the general multiple_of setting.
+        crop="center":
+            Preserve aspect ratio, scale enough to cover the target
+            dimensions, then center-crop to the target rectangle.
         """
 
         if multiple <= 1:
@@ -995,13 +999,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         is_type_image = cls.is_image(input_tensor)
 
         if is_type_image:
-            _, height, width, _ = (
-                input_tensor.shape
-            )
+            _, height, width, _ = input_tensor.shape
         else:
-            _, height, width = (
-                input_tensor.shape
-            )
+            _, height, width = input_tensor.shape
 
         target_width = cls.floor_to_multiple(
             width,
@@ -1014,126 +1014,18 @@ class ResizeImageMaskAlt(io.ComfyNode):
         )
 
         if (
-            target_width <= 0
-            or target_height <= 0
-        ):
-            return input_tensor
-
-        if (
             target_width == width
             and target_height == height
         ):
             return input_tensor
 
-        scale_width = (
-            target_width / width
-        )
-
-        scale_height = (
-            target_height / height
-        )
-
-        if scale_width >= scale_height:
-
-            scaled_width = target_width
-
-            scaled_height = int(
-                math.ceil(
-                    height * scale_width
-                )
-            )
-
-            if scaled_height < target_height:
-                scaled_height = target_height
-
-        else:
-
-            scaled_height = target_height
-
-            scaled_width = int(
-                math.ceil(
-                    width * scale_height
-                )
-            )
-
-            if scaled_width < target_width:
-                scaled_width = target_width
-
-        samples = cls.init_image_mask_input(
+        return cls.resize_to_dimensions(
             input_tensor,
-            is_type_image,
-        )
-
-        samples = comfy.utils.common_upscale(
-            samples,
-            scaled_width,
-            scaled_height,
+            target_width,
+            target_height,
             scale_method,
-            "disabled",
+            crop,
         )
-
-        samples = cls.finalize_image_mask_input(
-            samples,
-            is_type_image,
-        )
-
-        x0 = (
-            scaled_width - target_width
-        ) // 2
-
-        y0 = (
-            scaled_height - target_height
-        ) // 2
-
-        x1 = x0 + target_width
-        y1 = y0 + target_height
-
-        x0 = max(
-            0,
-            min(
-                x0,
-                scaled_width - 1,
-            ),
-        )
-
-        y0 = max(
-            0,
-            min(
-                y0,
-                scaled_height - 1,
-            ),
-        )
-
-        x1 = max(
-            x0 + 1,
-            min(
-                x1,
-                scaled_width,
-            ),
-        )
-
-        y1 = max(
-            y0 + 1,
-            min(
-                y1,
-                scaled_height,
-            ),
-        )
-
-        if is_type_image:
-
-            return samples[
-                :,
-                y0:y1,
-                x0:x1,
-                :,
-            ]
-
-        return samples[
-            :,
-            y0:y1,
-            x0:x1,
-        ]
 
     # ------------------------------------------------------------------
     # From SmartImageResize functionality
@@ -1489,6 +1381,10 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 input_tensor,
                 resize_type["multiple"],
                 scale_method,
+                resize_type.get(
+                    "crop",
+                    "center",
+                ),
             )
 
         # --------------------------------------------------------------
@@ -2032,6 +1928,16 @@ class ResizeImageMaskAlt(io.ComfyNode):
                             "Resize while preserving aspect ratio "
                             "so the final width and height are "
                             "divisible by this value."
+                        ),
+                    ),
+
+                    io.Combo.Input(
+                        "crop",
+                        options=cls.crop_methods,
+                        default="center",
+                        tooltip=(
+                            "How to handle aspect-ratio mismatch "
+                            "when matching the reference size."
                         ),
                     ),
                 ],

@@ -32,10 +32,6 @@ class ResizeImageMaskAlt(io.ComfyNode):
         "center",
     ]
 
-    legacy_methods = [
-        "pad",
-    ]
-
     default_aspect_ratios = [
         "Source (Keep Aspect Ratio)",
         "1:1 (Square)",
@@ -532,6 +528,85 @@ class ResizeImageMaskAlt(io.ComfyNode):
             )
 
         return target_width, target_height
+
+
+    # ------------------------------------------------------------------
+    # Smart Resize
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def smart_resize_dimensions(
+        cls,
+        image,
+        aspect_ratio,
+        resolution,
+        width,
+        height,
+        multiple_of=0,
+    ):
+        """
+        Calculate the final target dimensions for Smart Resize.
+
+        Resolution takes precedence over width/height when non-zero.
+
+        The selected aspect ratio determines the target geometry, while
+        multiple_of constrains the resulting dimensions.
+        """
+
+        oh = image.shape[1]
+        ow = image.shape[2]
+
+        # --------------------------------------------------------------
+        # Determine target resolution
+        # --------------------------------------------------------------
+
+        if resolution > 0:
+
+            target_resolution = resolution
+
+        else:
+
+            target_resolution = avg_from_dims(
+                width,
+                height,
+            )
+
+        # --------------------------------------------------------------
+        # Determine target aspect ratio
+        # --------------------------------------------------------------
+
+        if (
+            not aspect_ratio
+            or aspect_ratio
+            == "Source (Keep Aspect Ratio)"
+        ):
+
+            n, d = ar_parts_from_dims(
+                ow,
+                oh,
+            )
+
+        else:
+
+            n, d = ar_parts_from_str(
+                aspect_ratio,
+            )
+
+        # --------------------------------------------------------------
+        # Determine target dimensions
+        # --------------------------------------------------------------
+
+        target_width, target_height = dims_from_ar(
+            target_resolution,
+            n,
+            d,
+            multiple_of,
+        )
+
+        return (
+            target_width,
+            target_height,
+        )
 
     # ------------------------------------------------------------------
     # Scale dimensions
@@ -1157,185 +1232,96 @@ class ResizeImageMaskAlt(io.ComfyNode):
         )
 
     # ------------------------------------------------------------------
-    # Smart Resize
+    # Pad
     # ------------------------------------------------------------------
 
     @classmethod
-    def smart_resize_dimensions(
+    def pad_dimensions(
         cls,
-        image,
-        aspect_ratio,
-        resolution,
+        input_tensor,
         width,
         height,
         multiple_of=0,
     ):
         """
-        Calculate the final target dimensions for Smart Resize.
+        Calculate the resize and padding geometry for the pad mode.
 
-        Resolution takes precedence over width/height when non-zero.
+        width and height define the final padded rectangle.
 
-        The selected aspect ratio determines the target geometry, while
-        multiple_of constrains the resulting dimensions.
+        The source is scaled proportionally so that it fits entirely within
+        that rectangle, then centered within the remaining space.
+
+        multiple_of constrains the final padded dimensions.
         """
 
-        oh = image.shape[1]
-        ow = image.shape[2]
+        source_height = input_tensor.shape[1]
+        source_width = input_tensor.shape[2]
 
-        # --------------------------------------------------------------
-        # Determine target resolution
-        # --------------------------------------------------------------
-
-        if resolution > 0:
-
-            target_resolution = resolution
-
-        else:
-
-            target_resolution = avg_from_dims(
-                width,
-                height,
-            )
-
-        # --------------------------------------------------------------
-        # Determine target aspect ratio
-        # --------------------------------------------------------------
-
-        if (
-            not aspect_ratio
-            or aspect_ratio
-            == "Source (Keep Aspect Ratio)"
-        ):
-
-            n, d = ar_parts_from_dims(
-                ow,
-                oh,
-            )
-
-        else:
-
-            n, d = ar_parts_from_str(
-                aspect_ratio,
-            )
-
-        # --------------------------------------------------------------
-        # Determine target dimensions
-        # --------------------------------------------------------------
-
-        target_width, target_height = dims_from_ar(
-            target_resolution,
-            n,
-            d,
-            multiple_of,
+        width = (
+            width
+            if width > 0
+            else source_width
         )
 
-        return (
-            target_width,
-            target_height,
+        height = (
+            height
+            if height > 0
+            else source_height
         )
 
-    @classmethod
-    def legacy_resize(
-        cls,
-        image,
-        width,
-        height,
-        method,
-        multiple_of=0,
-    ):
-        """
-        Calculate the dimensions and crop/pad geometry for the legacy
-        resize modes.
-
-        multiple_of remains part of the geometry calculation.
-        """
-
-        oh = image.shape[1]
-        ow = image.shape[2]
-
-        x = 0
-        y = 0
-        x2 = 0
-        y2 = 0
-
-        pad_left = 0
-        pad_right = 0
-        pad_top = 0
-        pad_bottom = 0
-
-        # --------------------------------------------------------------
-        # Pad
-        # --------------------------------------------------------------
-
-        if method == "pad":
-
-            width = (
-                width
-                if width > 0
-                else ow
-            )
-
-            height = (
-                height
-                if height > 0
-                else oh
-            )
-
-            if multiple_of > 1:
-                width, height = (
-                    round_dimensions_to_multiple(
-                        width,
-                        height,
-                        multiple_of,
-                    )
+        if multiple_of > 1:
+            width, height = (
+                round_dimensions_to_multiple(
+                    width,
+                    height,
+                    multiple_of,
                 )
-
-            ratio = min(
-                width / ow,
-                height / oh,
             )
 
-            new_width = round(
-                ow * ratio
-            )
+        ratio = min(
+            width / source_width,
+            height / source_height,
+        )
 
-            new_height = round(
-                oh * ratio
-            )
+        resized_width = max(
+            1,
+            round(
+                source_width * ratio
+            ),
+        )
 
-            pad_left = (
-                width - new_width
-            ) // 2
+        resized_height = max(
+            1,
+            round(
+                source_height * ratio
+            ),
+        )
 
-            pad_right = (
-                width
-                - new_width
-                - pad_left
-            )
+        pad_left = (
+            width - resized_width
+        ) // 2
 
-            pad_top = (
-                height - new_height
-            ) // 2
+        pad_right = (
+            width
+            - resized_width
+            - pad_left
+        )
 
-            pad_bottom = (
-                height
-                - new_height
-                - pad_top
-            )
+        pad_top = (
+            height - resized_height
+        ) // 2
 
-        else:
-
-            raise ValueError(
-                f"Unknown method: {method}"
-            )
+        pad_bottom = (
+            height
+            - resized_height
+            - pad_top
+        )
 
         return (
-            new_width,
-            new_height,
-            x,
-            y,
-            x2,
-            y2,
+            width,
+            height,
+            resized_width,
+            resized_height,
             pad_left,
             pad_right,
             pad_top,
@@ -1822,51 +1808,25 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 outputs = input_tensor
 
         # --------------------------------------------------------------
-        # Legacy modes
+        # Pad
         # --------------------------------------------------------------
 
-        elif selected_type in cls.legacy_methods:
+        elif selected_type == "pad":
 
             (
-                new_width,
-                new_height,
-                x,
-                y,
-                x2,
-                y2,
+                target_width,
+                target_height,
+                resized_width,
+                resized_height,
                 pad_left,
                 pad_right,
                 pad_top,
                 pad_bottom,
-            ) = cls.legacy_resize(
+            ) = cls.pad_dimensions(
                 input_tensor,
                 resize_type["width"],
                 resize_type["height"],
-                selected_type,
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
-            )
-
-            # ----------------------------------------------------------
-            # Final output dimensions
-            #
-            # For "pad", new_width/new_height are the dimensions of the
-            # resized source before padding. The actual output dimensions
-            # include the padding.
-            # ----------------------------------------------------------
-
-            target_width = (
-                new_width
-                + pad_left
-                + pad_right
-            )
-
-            target_height = (
-                new_height
-                + pad_top
-                + pad_bottom
+                resize_type["multiple_of"],
             )
 
             if cls.should_resize(
@@ -1877,68 +1837,47 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 condition,
             ):
 
+                outputs = cls.resize_to_dimensions(
+                    input_tensor,
+                    resized_width,
+                    resized_height,
+                    scale_method,
+                    "disabled",
+                )
+
                 is_type_image = cls.is_image(
-                    input_tensor
+                    outputs
                 )
 
                 samples = cls.init_image_mask_input(
-                    input_tensor,
+                    outputs,
                     is_type_image,
                 )
 
-                # ------------------------------------------------------
-                # Resize
-                # ------------------------------------------------------
+                if (
+                    pad_left
+                    or pad_right
+                    or pad_top
+                    or pad_bottom
+                ):
 
-                if scale_method == "lanczos":
-
-                    samples = comfy.utils.lanczos(
-                        samples,
-                        new_width,
-                        new_height,
+                    pad_value = cls.pad_color_value(
+                        resize_type.get(
+                            "color",
+                            "black",
+                        )
                     )
 
-                else:
-
-                    samples = F.interpolate(
+                    samples = F.pad(
                         samples,
-                        size=(
-                            new_height,
-                            new_width,
+                        (
+                            pad_left,
+                            pad_right,
+                            pad_top,
+                            pad_bottom,
                         ),
-                        mode=scale_method,
+                        value=pad_value,
                     )
-
-                # ------------------------------------------------------
-                # Pad
-                # ------------------------------------------------------
-
-                if selected_type == "pad":
-
-                    if (
-                        pad_left
-                        or pad_right
-                        or pad_top
-                        or pad_bottom
-                    ):
-
-                        pad_value = cls.pad_color_value(
-                            resize_type.get(
-                                "color",
-                                "black",
-                            )
-                        )
-
-                        samples = F.pad(
-                            samples,
-                            (
-                                pad_left,
-                                pad_right,
-                                pad_top,
-                                pad_bottom,
-                            ),
-                            value=pad_value,
-                        )
 
                 outputs = cls.finalize_image_mask_input(
                     samples,
@@ -2482,6 +2421,10 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
+                        tooltip=(
+                            "Final padded width. "
+                            "0 uses the source width."
+                        ),
                     ),
 
                     io.Int.Input(
@@ -2490,6 +2433,10 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
+                        tooltip=(
+                            "Final padded height. "
+                            "0 uses the source height."
+                        ),
                     ),
 
                     io.Int.Input(

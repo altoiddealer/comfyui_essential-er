@@ -9,8 +9,8 @@ import comfy.utils
 from nodes import MAX_RESOLUTION
 from comfy_api.latest import io
 
-from .utils_aspect_ratios import avg_from_dims, ar_parts_from_dims, dims_from_ar, ar_parts_from_str
-from .utils_image import round_to_multiple, round_dimensions_to_multiple, floor_to_multiple
+from .utils_image import round_to_multiple, round_dimensions_to_multiple, floor_to_multiple, is_image_tensor, image_mask_to_nchw, nchw_to_image_mask, pad_color_value, image_mask_dimensions, \
+                         avg_from_dims, ar_parts_from_dims, dims_from_ar, ar_parts_from_str
 
 class ResizeImageMaskAlt(io.ComfyNode):
 
@@ -63,64 +63,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
     # Image / Mask helpers
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def is_image(input_tensor):
-        """
-        IMAGE:
-            [B, H, W, C]
 
-        MASK:
-            [B, H, W]
-        """
-        return len(input_tensor.shape) == 4
-
-    @staticmethod
-    def init_image_mask_input(
-        input_tensor,
-        is_type_image,
-    ):
-        """
-        Convert either IMAGE or MASK to:
-
-            [B, C, H, W]
-        """
-        if is_type_image:
-            return input_tensor.movedim(-1, 1)
-
-        return input_tensor.unsqueeze(1)
-
-    @staticmethod
-    def finalize_image_mask_input(
-        input_tensor,
-        is_type_image,
-    ):
-        """
-        Convert [B, C, H, W] back to the original IMAGE/MASK layout.
-        """
-        if is_type_image:
-            return input_tensor.movedim(1, -1)
-
-        return input_tensor.squeeze(1)
-
-    @staticmethod
-    def pad_color_value(color):
-        """
-        Convert a pad color name to the normalized tensor value used by
-        ComfyUI IMAGE and MASK tensors.
-        """
-
-        values = {
-            "black": 0.0,
-            "gray": 0.5,
-            "white": 1.0,
-        }
-
-        try:
-            return values[color]
-        except KeyError:
-            raise ValueError(
-                f"Unsupported pad color: {color}"
-            )
 
     # ------------------------------------------------------------------
     # Aspect Ratio helper
@@ -282,12 +225,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         width = max(1, int(round(width)))
         height = max(1, int(round(height)))
 
-        is_type_image = cls.is_image(input_tensor)
+        is_type_image = is_image_tensor(input_tensor)
 
-        samples = cls.init_image_mask_input(
-            input_tensor,
-            is_type_image,
-        )
+        samples = image_mask_to_nchw(input_tensor)
 
         source_width = samples.shape[-1]
         source_height = samples.shape[-2]
@@ -312,7 +252,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
             crop,
         )
 
-        return cls.finalize_image_mask_input(
+        return nchw_to_image_mask(
             samples,
             is_type_image,
         )
@@ -556,46 +496,21 @@ class ResizeImageMaskAlt(io.ComfyNode):
         oh = image.shape[1]
         ow = image.shape[2]
 
-        # --------------------------------------------------------------
         # Determine target resolution
-        # --------------------------------------------------------------
-
         if resolution > 0:
-
             target_resolution = resolution
-
         else:
+            target_resolution = avg_from_dims(width, height)
 
-            target_resolution = avg_from_dims(
-                width,
-                height,
-            )
-
-        # --------------------------------------------------------------
         # Determine target aspect ratio
-        # --------------------------------------------------------------
+        if (not aspect_ratio
+            or aspect_ratio == "Source (Keep Aspect Ratio)"):
 
-        if (
-            not aspect_ratio
-            or aspect_ratio
-            == "Source (Keep Aspect Ratio)"
-        ):
-
-            n, d = ar_parts_from_dims(
-                ow,
-                oh,
-            )
-
+            n, d = ar_parts_from_dims(ow, oh)
         else:
+            n, d = ar_parts_from_str(aspect_ratio)
 
-            n, d = ar_parts_from_str(
-                aspect_ratio,
-            )
-
-        # --------------------------------------------------------------
         # Determine target dimensions
-        # --------------------------------------------------------------
-
         target_width, target_height = dims_from_ar(
             target_resolution,
             n,
@@ -603,10 +518,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
             multiple_of,
         )
 
-        return (
-            target_width,
-            target_height,
-        )
+        return (target_width, target_height)
 
     # ------------------------------------------------------------------
     # Scale dimensions
@@ -635,15 +547,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         if width == 0 and height == 0:
             return input_tensor
 
-        is_type_image = cls.is_image(input_tensor)
-
-        samples = cls.init_image_mask_input(
-            input_tensor,
-            is_type_image,
+        source_width, source_height = (
+            image_mask_dimensions(input_tensor)
         )
-
-        source_width = samples.shape[-1]
-        source_height = samples.shape[-2]
 
         if width == 0:
             width = max(
@@ -705,15 +611,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         caused by the multiple constraint is stretched or center-cropped.
         """
 
-        is_type_image = cls.is_image(input_tensor)
-
-        samples = cls.init_image_mask_input(
-            input_tensor,
-            is_type_image,
+        source_width, source_height = (
+            image_mask_dimensions(input_tensor)
         )
-
-        source_width = samples.shape[-1]
-        source_height = samples.shape[-2]
 
         width = max(
             1,
@@ -765,15 +665,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         ratio discrepancy is handled.
         """
 
-        is_type_image = cls.is_image(input_tensor)
-
-        samples = cls.init_image_mask_input(
-            input_tensor,
-            is_type_image,
+        source_width, source_height = (
+            image_mask_dimensions(input_tensor)
         )
-
-        source_width = samples.shape[-1]
-        source_height = samples.shape[-2]
 
         width, height = cls.dimensions_from_longer(
             source_width,
@@ -810,15 +704,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         secondary dimension is independently constrained.
         """
 
-        is_type_image = cls.is_image(input_tensor)
-
-        samples = cls.init_image_mask_input(
-            input_tensor,
-            is_type_image,
+        source_width, source_height = (
+            image_mask_dimensions(input_tensor)
         )
-
-        source_width = samples.shape[-1]
-        source_height = samples.shape[-2]
 
         width, height = cls.dimensions_from_shorter(
             source_width,
@@ -855,15 +743,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         independently constrained.
         """
 
-        is_type_image = cls.is_image(input_tensor)
-
-        samples = cls.init_image_mask_input(
-            input_tensor,
-            is_type_image,
+        source_width, source_height = (
+            image_mask_dimensions(input_tensor)
         )
-
-        source_width = samples.shape[-1]
-        source_height = samples.shape[-2]
 
         target_width, target_height = (
             cls.dimensions_from_width(
@@ -902,15 +784,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         independently constrained.
         """
 
-        is_type_image = cls.is_image(input_tensor)
-
-        samples = cls.init_image_mask_input(
-            input_tensor,
-            is_type_image,
+        source_width, source_height = (
+            image_mask_dimensions(input_tensor)
         )
-
-        source_width = samples.shape[-1]
-        source_height = samples.shape[-2]
 
         target_width, target_height = (
             cls.dimensions_from_height(
@@ -1098,15 +974,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         from nearby valid multiple-compatible rectangles.
         """
 
-        is_type_image = cls.is_image(input_tensor)
-
-        samples = cls.init_image_mask_input(
-            input_tensor,
-            is_type_image,
+        source_width, source_height = (
+            image_mask_dimensions(input_tensor)
         )
-
-        source_width = samples.shape[-1]
-        source_height = samples.shape[-2]
 
         width, height = (
             cls.dimensions_for_total_pixels(
@@ -1146,15 +1016,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         final resize is performed.
         """
 
-        match_is_image = cls.is_image(match)
-
-        match_samples = cls.init_image_mask_input(
-            match,
-            match_is_image,
+        width, height = (
+            image_mask_dimensions(match)
         )
-
-        width = match_samples.shape[-1]
-        height = match_samples.shape[-2]
 
         if multiple_of > 1:
             width, height = (
@@ -1200,7 +1064,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         if multiple <= 1:
             return input_tensor
 
-        is_type_image = cls.is_image(input_tensor)
+        is_type_image = is_image_tensor(input_tensor)
 
         if is_type_image:
             _, height, width, _ = input_tensor.shape
@@ -1721,17 +1585,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
             match = resize_type["match"]
 
-            match_is_image = cls.is_image(
-                match
+            target_width, target_height = (
+                image_mask_dimensions(match)
             )
-
-            match_samples = cls.init_image_mask_input(
-                match,
-                match_is_image,
-            )
-
-            target_width = match_samples.shape[-1]
-            target_height = match_samples.shape[-2]
 
             if resize_type["multiple_of"] > 1:
 
@@ -1845,14 +1701,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                     "disabled",
                 )
 
-                is_type_image = cls.is_image(
-                    outputs
-                )
+                is_type_image = is_image_tensor(outputs)
 
-                samples = cls.init_image_mask_input(
-                    outputs,
-                    is_type_image,
-                )
+                samples = image_mask_to_nchw(outputs)
 
                 if (
                     pad_left
@@ -1861,12 +1712,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                     or pad_bottom
                 ):
 
-                    pad_value = cls.pad_color_value(
-                        resize_type.get(
-                            "color",
-                            "black",
-                        )
-                    )
+                    pad_value = pad_color_value(resize_type["color"])
 
                     samples = F.pad(
                         samples,
@@ -1879,7 +1725,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         value=pad_value,
                     )
 
-                outputs = cls.finalize_image_mask_input(
+                outputs = nchw_to_image_mask(
                     samples,
                     is_type_image,
                 )
@@ -1940,9 +1786,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                         tooltip=(
                             "Target aspect ratio. "
-                            "The source is scaled proportionally "
-                            "to the target resolution while "
-                            "constrained to precision of 'multiple_of'."
+                            "The source is scaled proportionally to the target resolution "
+                            "while constrained to precision of 'multiple_of'."
                         ),
                     ),
 
@@ -1953,8 +1798,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target resolution. "
-                            "When greater than 0, Width and Height are ignored."
+                            "Target resolution. When greater than 0, Width and Height are ignored."
                         ),
                     ),
 
@@ -1965,8 +1809,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target width, to be used with height as an "
-                            "alternative strategy to determine target resolution. "
+                            "Target width, to be used with height as an alternative strategy to determine target resolution. "
                             "Ignored when resolution is greater than 0."
                         ),
                     ),
@@ -1978,8 +1821,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target height, to be used with width as an "
-                            "alternative strategy to determine target resolution. "
+                            "Target height, to be used with width as an alternative strategy to determine target resolution. "
                             "Ignored when resolution is greater than 0."
                         ),
                     ),
@@ -1991,8 +1833,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "Constrain the dimensions "
-                            "to the nearest multiple of this value."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2024,8 +1865,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target width. "
-                            "0 calculates it from height."
+                            "Target width. Set to 0 to auto-calculate from height while preserving aspect ratio."
                         ),
                     ),
 
@@ -2036,8 +1876,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target height. "
-                            "0 calculates it from width."
+                            "Target height. Set to 0 to auto-calculate from width while preserving aspect ratio."
                         ),
                     ),
 
@@ -2048,8 +1887,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "Constrain the final target dimensions "
-                            "to the nearest multiple of this value."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2090,8 +1928,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "Constrain both resulting dimensions "
-                            "to the nearest multiple of this value."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2119,8 +1956,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Resize the longer edge to this value "
-                            "while preserving aspect ratio."
+                            "Resize the longer edge to this value while preserving aspect ratio."
                         ),
                     ),
 
@@ -2131,9 +1967,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "First constrains the requested longer "
-                            "dimension, then constrains the calculated "
-                            "secondary dimension."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2173,9 +2007,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "First constrains the requested shorter "
-                            "dimension, then constrains the calculated "
-                            "secondary dimension."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2203,8 +2035,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target width. "
-                            "Height is calculated automatically."
+                            "Target width. Height is calculated automatically."
                         ),
                     ),
 
@@ -2215,8 +2046,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "First constrains the requested width, "
-                            "then constrains the calculated height."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2244,8 +2074,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target height. "
-                            "Width is calculated automatically."
+                            "Target height. Width is calculated automatically."
                         ),
                     ),
 
@@ -2256,8 +2085,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "First constrains the requested height, "
-                            "then constrains the calculated width."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2301,9 +2129,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "Find dimensions near the requested "
-                            "megapixel target that are both divisible "
-                            "by this value."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2348,8 +2174,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                             io.Mask,
                         ],
                         tooltip=(
-                            "Resize to match the dimensions "
-                            "of this image or mask."
+                            "Resize to match the dimensions of this image or mask."
                         ),
                     ),
 
@@ -2360,8 +2185,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "Constrain the reference dimensions "
-                            "to the nearest multiple of this value."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),
@@ -2422,9 +2246,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Final padded width. "
-                            "0 uses the source width."
-                        ),
+                            "Final padded width. 0 uses the source width."
+                        )
                     ),
 
                     io.Int.Input(
@@ -2434,8 +2257,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Final padded height. "
-                            "0 uses the source height."
+                            "Final padded height. 0 uses the source height."
                         ),
                     ),
 
@@ -2446,8 +2268,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=512,
                         step=1,
                         tooltip=(
-                            "Constrain the padded dimensions "
-                            "to this multiple."
+                            "Constrain the dimensions to the nearest multiple of this value."
                         ),
                         advanced=True,
                     ),

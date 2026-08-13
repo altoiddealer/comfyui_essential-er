@@ -11,6 +11,8 @@ from comfy_api.latest import io
 
 from .utils_image import round_to_multiple, round_dimensions_to_multiple, floor_to_multiple, is_image_tensor, image_mask_to_nchw, nchw_to_image_mask, pad_color_value, image_mask_dimensions, \
                          avg_from_dims, ar_parts_from_dims, dims_from_ar, ar_parts_from_str
+from .utils_user_overrides import UserOverrides
+overrides = UserOverrides()
 
 class ResizeImageMaskAlt(io.ComfyNode):
 
@@ -33,7 +35,6 @@ class ResizeImageMaskAlt(io.ComfyNode):
     ]
 
     default_aspect_ratios = [
-        "Source (Keep Aspect Ratio)",
         "1:1 (Square)",
         "2:3 (Portrait Photo)",
         "3:2 (Photo)",
@@ -60,83 +61,18 @@ class ResizeImageMaskAlt(io.ComfyNode):
     ]
 
     # ------------------------------------------------------------------
-    # Image / Mask helpers
-    # ------------------------------------------------------------------
-
-
-
-    # ------------------------------------------------------------------
     # Aspect Ratio helper
     # ------------------------------------------------------------------
 
     @classmethod
     def get_aspect_ratio_options(cls):
-        """
-        Return the configured aspect-ratio options.
 
-        If a user creates:
+        options = ["Source (Keep Aspect Ratio)"]
 
-            user_aspect-ratio-options.yaml
-
-        beside this module, its options override the built-in defaults.
-
-        Otherwise, the example file is ignored and the built-in defaults
-        are used.
-        """
-
-        module_dir = Path(__file__).resolve().parent
-
-        config_path = (
-            module_dir
-            / "user_aspect-ratio-options.yaml"
-        )
-
-        if not config_path.is_file():
-            return cls.default_aspect_ratios
-
-        try:
-            with config_path.open(
-                "r",
-                encoding="utf-8",
-            ) as file:
-
-                data = yaml.safe_load(file)
-
-        except Exception as error:
-
-            print(
-                "[ResizeImageMaskAlt] "
-                f"Failed to load user aspect ratios: {error}"
-            )
-
-            return cls.default_aspect_ratios
-
-        if not isinstance(
-            data,
-            list,
-        ):
-
-            print(
-                "[ResizeImageMaskAlt] "
-                "user aspect ratio configuration must contain a YAML list."
-            )
-
-            return cls.default_aspect_ratios
-
-        options = [
-            str(option)
-            for option in data
-            if str(option).strip()
-        ]
-
-        if not options:
-
-            print(
-                "[ResizeImageMaskAlt] "
-                "user aspect ratio configuration contained no valid options."
-            )
-
-            return cls.default_aspect_ratios
+        options.extend(
+            overrides.get("nodes_image", "resize_image_mask_alt", "smart_resize", "aspect_ratios",
+                          default=cls.default_aspect_ratios)
+                          )
 
         return options
 
@@ -1769,6 +1705,34 @@ class ResizeImageMaskAlt(io.ComfyNode):
     # ------------------------------------------------------------------
 
     @classmethod
+    def get_option(cls, name: str):
+
+        if name == "multiple_of":
+            return io.Int.Input(
+                "multiple_of",
+                default=overrides.get("nodes_image", "shared", "resolution", default=0),
+                min=0,
+                max=512,
+                step=1,
+                tooltip=("Constrain the dimensions to the nearest multiple of this value."),
+                advanced=True,
+            )
+
+        elif name == "crop":
+            return io.Combo.Input(
+                "crop",
+                options=cls.crop_methods,
+                default="center",
+                tooltip=(
+                    "How to handle aspect-ratio mismatch. "
+                    "'disabled' stretches to fit; "
+                    "'center' crops to maintain aspect ratio."
+                ),
+            )
+
+        return None
+
+    @classmethod
     def define_schema(cls):
 
         resize_options = [
@@ -1778,12 +1742,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Combo.Input(
                         "aspect_ratio",
-                        options=(
-                            cls.get_aspect_ratio_options()
-                        ),
-                        default=(
-                            "Source (Keep Aspect Ratio)"
-                        ),
+                        options=(cls.get_aspect_ratio_options()),
+                        default=("Source (Keep Aspect Ratio)"),
                         tooltip=(
                             "Target aspect ratio. "
                             "The source is scaled proportionally to the target resolution "
@@ -1793,7 +1753,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
                     io.Int.Input(
                         "resolution",
-                        default=1024,
+                        default=overrides.get("nodes_image", "shared", "resolution", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -1804,7 +1764,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
                     io.Int.Input(
                         "width",
-                        default=0,
+                        default=overrides.get("nodes_image", "resize_image_mask_alt", "smart_resize", "width", default=0),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -1816,7 +1776,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
                     io.Int.Input(
                         "height",
-                        default=0,
+                        default=overrides.get("nodes_image", "resize_image_mask_alt", "smart_resize", "height", default=0),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -1826,28 +1786,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -1860,7 +1801,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Int.Input(
                         "width",
-                        default=512,
+                        default=overrides.get("nodes_image", "shared", "width", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -1871,7 +1812,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
                     io.Int.Input(
                         "height",
-                        default=512,
+                        default=overrides.get("nodes_image", "shared", "height", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -1880,28 +1821,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -1910,7 +1832,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Float.Input(
                         "multiplier",
-                        default=1.0,
+                        default=overrides.get("nodes_image", "shared", "multiplier", default=1.0),
                         min=0.01,
                         max=8.0,
                         step=0.01,
@@ -1921,28 +1843,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -1951,7 +1854,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Int.Input(
                         "longer_size",
-                        default=512,
+                        default=overrides.get("nodes_image", "resize_image_mask_alt", "scale_x_dimension", "longer_size", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -1960,28 +1863,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -1990,7 +1874,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Int.Input(
                         "shorter_size",
-                        default=512,
+                        default=overrides.get("nodes_image", "resize_image_mask_alt", "scale_x_dimension", "shorter_size", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -2000,28 +1884,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -2030,7 +1895,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Int.Input(
                         "width",
-                        default=512,
+                        default=overrides.get("nodes_image", "shared", "width", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -2039,28 +1904,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -2069,7 +1915,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Int.Input(
                         "height",
-                        default=512,
+                        default=overrides.get("nodes_image", "shared", "height", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -2078,28 +1924,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -2108,7 +1935,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Float.Input(
                         "megapixels",
-                        default=1.0,
+                        default=overrides.get("nodes_image", "shared", "megapixels", default=1.0),
                         min=0.01,
                         max=16.0,
                         step=0.01,
@@ -2122,21 +1949,11 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
                     io.Float.Input(
                         "megapixel_priority",
-                        default=1.0,
+                        default=overrides.get("nodes_image", "resize_image_mask_alt", "scale_total_pixels", "megapixel_priority", default=1.0),
                         min=0.0,
                         max=1.0,
                         step=0.1,
@@ -2151,16 +1968,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         advanced=True,
                     ),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -2178,28 +1986,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
-                    ),
+                    cls.get_option("multiple_of"),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -2208,7 +1997,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Int.Input(
                         "multiple",
-                        default=8,
+                        default=overrides.get("nodes_image", "resize_image_mask_alt", "scale_to_multiple", "multiple", default=8),
                         min=1,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -2219,16 +2008,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         ),
                     ),
 
-                    io.Combo.Input(
-                        "crop",
-                        options=cls.crop_methods,
-                        default="center",
-                        tooltip=(
-                            "How to handle aspect-ratio mismatch. "
-                            "'disabled' stretches to fit; "
-                            "'center' crops to maintain aspect ratio."
-                        ),
-                    ),
+                    cls.get_option("crop"),
                 ],
             ),
 
@@ -2241,7 +2021,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 [
                     io.Int.Input(
                         "width",
-                        default=512,
+                        default=overrides.get("nodes_image", "shared", "width", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
@@ -2252,25 +2032,13 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
                     io.Int.Input(
                         "height",
-                        default=512,
+                        default=overrides.get("nodes_image", "shared", "height", default=512),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
                             "Final padded height. 0 uses the source height."
                         ),
-                    ),
-
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the dimensions to the nearest multiple of this value."
-                        ),
-                        advanced=True,
                     ),
 
                     io.Combo.Input(
@@ -2281,6 +2049,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
                             "Color used for the padded area."
                         ),
                     ),
+
+                    cls.get_option("multiple_of"),
                 ],
             ),
         ]

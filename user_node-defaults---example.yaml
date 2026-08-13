@@ -1,0 +1,55 @@
+# Overrides for node options
+#
+# To customize this list:
+#
+# 1. Duplicate this file.
+# 2. Remove the ---example suffix (making it: 'user_node-defaults.yaml')
+# 3. Edit the list below. New value must be same value type (eg: integer, float, string, etc)
+# 4. Restart ComfyUI.
+
+# Nodes focused on images
+nodes_image:
+
+
+  # Shared by various nodes
+  shared:
+    width: 512
+    height: 512
+    megapixels: 1.0
+    resolution: 512
+    multiplier: 1.0
+    multiple_of: 32
+
+
+  # Node: Resize Image/Mask Alt
+  resize_image_mask_alt:
+
+    # 'smart resize' resize type
+    smart_resize:
+      width: 0
+      height: 0
+      # Aspect Ratio options must begin with 'width:height'
+      # Optional descriptive text may follow.
+      aspect_ratios:
+        - 1:1 (Square)
+        - 2:3 (Portrait Photo)
+        - 3:2 (Photo)
+        - 3:4 (Portrait Standard)
+        - 4:3 (Standard)
+        - 9:16 (Portrait Widescreen)
+        - 16:9 (Widescreen)
+        - 9:21 (Portrait Ultrawide)
+        - 21:9 (Ultrawide)
+
+    # 'scale (shorter/longer) dimension' resize types
+    scale_x_dimension:
+      longer_size: 512
+      shorter_size: 512
+
+    # 'scale total pixels' resize type
+    scale_total_pixels:
+      megapixel_priority: 1.0
+
+    # 'scale to multiple' resize type
+    scale_to_multiple:
+      multiple: 8

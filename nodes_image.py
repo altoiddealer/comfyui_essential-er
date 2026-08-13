@@ -435,8 +435,13 @@ class ResizeImageMaskAlt(io.ComfyNode):
         # Determine target resolution
         if resolution > 0:
             target_resolution = resolution
-        else:
+        elif width + height > 0:
             target_resolution = avg_from_dims(width, height)
+        else:
+            raise ValueError(
+                "[ResizeImageMaskAlt] invalid target resolution: "
+                "resolution, width, and height cannot all be 0"
+            )
 
         # Determine target aspect ratio
         if (not aspect_ratio

@@ -53,3 +53,22 @@ nodes_image:
     # 'scale to multiple' resize type
     scale_to_multiple:
       multiple: 8
+
+
+# Nodes focused on videos
+nodes_videos:
+
+  # Node: Load Videos From Folder List Alt
+  load_videos_from_folder_list:
+    video: "X://insert/path/" # default path to folder
+    add_label: False          # True / False
+
+
+# Nodes focused on batching
+nodes_batching:
+
+  # Node: Merge Image Batch List Alt
+  merge_image_batch_list:
+    overlap: 13
+    overlap_side: source       # source / new_images
+    overlap_mode: linear_blend # cut / linear_blend / ease_in_out / filmic_crossfade / perceptual_crossfade

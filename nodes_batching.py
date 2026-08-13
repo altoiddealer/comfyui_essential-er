@@ -3,6 +3,9 @@ from comfy_api.latest import io
 import torch
 import torch.nn.functional as F
 
+from .utils_user_overrides import UserOverrides
+overrides = UserOverrides()
+
 class MergeImageBatchList(io.ComfyNode):
 
     @classmethod
@@ -32,7 +35,7 @@ class MergeImageBatchList(io.ComfyNode):
 
                 io.Int.Input(
                     "overlap",
-                    default=13,
+                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap", default=13),
                     min=1,
                     max=4096,
                     step=1,
@@ -45,7 +48,7 @@ class MergeImageBatchList(io.ComfyNode):
                         "source",
                         "new_images",
                     ],
-                    default="source",
+                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_side", default="source"),
                     tooltip="Determines which batch supplies the first side of the overlap.",
                 ),
 
@@ -58,7 +61,7 @@ class MergeImageBatchList(io.ComfyNode):
                         "filmic_crossfade",
                         "perceptual_crossfade",
                     ],
-                    default="linear_blend",
+                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_mode", default="linear_blend"),
                     tooltip="How overlapping images are combined.",
                 ),
             ],
@@ -308,7 +311,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
                 io.Int.Input(
                     "overlap",
-                    default=13,
+                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap", default=13),
                     min=1,
                     max=4096,
                     step=1,
@@ -324,7 +327,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                         "source",
                         "new_images",
                     ],
-                    default="source",
+                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_side", default="source"),
                     tooltip=(
                         "Determines which batch supplies the first side "
                         "of the overlap."
@@ -340,7 +343,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                         "filmic_crossfade",
                         "perceptual_crossfade",
                     ],
-                    default="linear_blend",
+                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_mode", default="linear_blend"),
                     tooltip=(
                         "How overlapping images and audio are combined."
                     ),

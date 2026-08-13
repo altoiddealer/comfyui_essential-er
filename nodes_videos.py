@@ -8,6 +8,8 @@ from PIL import Image, ImageDraw, ImageFont
 
 from comfy_api.latest import io
 
+from .utils_user_overrides import UserOverrides
+overrides = UserOverrides()
 
 class LoadVideosFromFolderList(io.ComfyNode):
 
@@ -76,7 +78,7 @@ class LoadVideosFromFolderList(io.ComfyNode):
             inputs=[
                 io.String.Input(
                     "video",
-                    default="X://insert/path/",
+                    default=overrides.get("nodes_image", "shared", "video", default="X://insert/path/"),
                     tooltip="Folder containing the videos to load.",
                 ),
 

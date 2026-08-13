@@ -34,6 +34,33 @@ def ar_parts_from_dims(w, h):
     simp_h = h // divisor
     return simp_w, simp_h
 
-def ar_parts_from_str(ar_str:str):
-    ratio_parts = tuple(map(int, ar_str.replace(':', '/').split('/')))
-    return ratio_parts[0], ratio_parts[1]
+def ar_parts_from_str(ar_str: str):
+    """
+    Parse an aspect-ratio option such as "16:9 (Widescreen) into:(16, 9)
+    """
+    if not ar_str:
+        raise ValueError("Aspect ratio cannot be empty.")
+
+    ratio_text = (str(ar_str).strip().split()[0])
+
+    if ":" not in ratio_text:
+        raise ValueError(f"Invalid aspect ratio: {ar_str}")
+
+    numerator, denominator = (ratio_text.split(":", 1))
+
+    try:
+        numerator = int(numerator)
+        denominator = int(denominator)
+
+    except ValueError as error:
+
+        raise ValueError(f"Invalid aspect ratio: {ar_str}") from error
+
+    if (numerator <= 0
+        or denominator <= 0):
+        raise ValueError(f"Aspect ratio values must be positive: {ar_str}")
+
+    divisor = gcd(numerator, denominator)
+
+    return (numerator // divisor,
+            denominator // divisor)

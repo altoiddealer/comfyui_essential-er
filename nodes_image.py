@@ -1,4 +1,6 @@
 import math
+import yaml
+from pathlib import Path
 
 import torch
 import torch.nn.functional as F
@@ -7,11 +9,8 @@ import comfy.utils
 from nodes import MAX_RESOLUTION
 from comfy_api.latest import io
 
-from .utils_aspect_ratios import (
-    avg_from_dims,
-    ar_parts_from_dims,
-    dims_from_ar,
-)
+from .utils_aspect_ratios import avg_from_dims, ar_parts_from_dims, dims_from_ar, ar_parts_from_str
+from .utils_image import round_to_multiple, round_dimensions_to_multiple, floor_to_multiple
 
 class ResizeImageMaskAlt(io.ComfyNode):
 
@@ -34,8 +33,20 @@ class ResizeImageMaskAlt(io.ComfyNode):
     ]
 
     legacy_methods = [
-        "keep proportion",
         "pad",
+    ]
+
+    default_aspect_ratios = [
+        "Source (Keep Aspect Ratio)",
+        "1:1 (Square)",
+        "2:3 (Portrait Photo)",
+        "3:2 (Photo)",
+        "3:4 (Portrait Standard)",
+        "4:3 (Standard)",
+        "9:16 (Portrait Widescreen)",
+        "16:9 (Widescreen)",
+        "9:21 (Portrait Ultrawide)",
+        "21:9 (Ultrawide)",
     ]
 
     pad_colors = [
@@ -51,61 +62,6 @@ class ResizeImageMaskAlt(io.ComfyNode):
         "if bigger area",
         "if smaller area",
     ]
-
-    # ------------------------------------------------------------------
-    # General dimension helpers
-    # ------------------------------------------------------------------
-
-    @staticmethod
-    def round_to_multiple(value, multiple):
-        """
-        Round a dimension to the nearest multiple.
-        """
-        value = int(round(value))
-
-        if multiple <= 1:
-            return max(1, value)
-
-        return max(
-            multiple,
-            int(round(value / multiple)) * multiple,
-        )
-
-    @classmethod
-    def round_dimensions_to_multiple(
-        cls,
-        width,
-        height,
-        multiple,
-    ):
-        """
-        Round both dimensions independently to the nearest multiple.
-        """
-        if multiple <= 1:
-            return (
-                max(1, int(round(width))),
-                max(1, int(round(height))),
-            )
-
-        return (
-            cls.round_to_multiple(width, multiple),
-            cls.round_to_multiple(height, multiple),
-        )
-
-    @staticmethod
-    def floor_to_multiple(value, multiple):
-        """
-        Floor a dimension to a multiple.
-        """
-        value = int(value)
-
-        if multiple <= 1:
-            return max(1, value)
-
-        return max(
-            multiple,
-            (value // multiple) * multiple,
-        )
 
     # ------------------------------------------------------------------
     # Image / Mask helpers
@@ -169,6 +125,135 @@ class ResizeImageMaskAlt(io.ComfyNode):
             raise ValueError(
                 f"Unsupported pad color: {color}"
             )
+
+    # ------------------------------------------------------------------
+    # Aspect Ratio helper
+    # ------------------------------------------------------------------
+
+    @classmethod
+    def get_aspect_ratio_options(cls):
+        """
+        Return the configured aspect-ratio options.
+
+        If a user creates:
+
+            user_aspect-ratio-options.yaml
+
+        beside this module, its options override the built-in defaults.
+
+        Otherwise, the example file is ignored and the built-in defaults
+        are used.
+        """
+
+        module_dir = Path(__file__).resolve().parent
+
+        config_path = (
+            module_dir
+            / "user_aspect-ratio-options.yaml"
+        )
+
+        if not config_path.is_file():
+            return cls.default_aspect_ratios
+
+        try:
+            with config_path.open(
+                "r",
+                encoding="utf-8",
+            ) as file:
+
+                data = yaml.safe_load(file)
+
+        except Exception as error:
+
+            print(
+                "[ResizeImageMaskAlt] "
+                f"Failed to load user aspect ratios: {error}"
+            )
+
+            return cls.default_aspect_ratios
+
+        if not isinstance(
+            data,
+            list,
+        ):
+
+            print(
+                "[ResizeImageMaskAlt] "
+                "user aspect ratio configuration must contain a YAML list."
+            )
+
+            return cls.default_aspect_ratios
+
+        options = [
+            str(option)
+            for option in data
+            if str(option).strip()
+        ]
+
+        if not options:
+
+            print(
+                "[ResizeImageMaskAlt] "
+                "user aspect ratio configuration contained no valid options."
+            )
+
+            return cls.default_aspect_ratios
+
+        return options
+
+    # ------------------------------------------------------------------
+    # Condition check helper
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def should_resize(
+        source_width,
+        source_height,
+        target_width,
+        target_height,
+        condition,
+    ):
+        """
+        Determine whether a resize operation should be performed.
+        """
+
+        if condition == "always":
+            return True
+
+        if condition == "downscale if bigger":
+
+            return (
+                source_width > target_width
+                or source_height > target_height
+            )
+
+        if condition == "upscale if smaller":
+
+            return (
+                source_width < target_width
+                or source_height < target_height
+            )
+
+        source_area = (
+            source_width
+            * source_height
+        )
+
+        target_area = (
+            target_width
+            * target_height
+        )
+
+        if condition == "if bigger area":
+            return source_area > target_area
+
+        if condition == "if smaller area":
+            return source_area < target_area
+
+        raise ValueError(
+            f"Unsupported resize condition: "
+            f"{condition}"
+        )
 
     # ------------------------------------------------------------------
     # Core resize helper
@@ -267,7 +352,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         longer_size = max(1, int(round(longer_size)))
 
         if multiple_of > 1:
-            longer_size = cls.round_to_multiple(
+            longer_size = round_to_multiple(
                 longer_size,
                 multiple_of,
             )
@@ -298,7 +383,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
         if multiple_of > 1:
             width, height = (
-                cls.round_dimensions_to_multiple(
+                round_dimensions_to_multiple(
                     width,
                     height,
                     multiple_of,
@@ -328,7 +413,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         )
 
         if multiple_of > 1:
-            shorter_size = cls.round_to_multiple(
+            shorter_size = round_to_multiple(
                 shorter_size,
                 multiple_of,
             )
@@ -359,7 +444,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
         if multiple_of > 1:
             width, height = (
-                cls.round_dimensions_to_multiple(
+                round_dimensions_to_multiple(
                     width,
                     height,
                     multiple_of,
@@ -386,7 +471,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         )
 
         if multiple_of > 1:
-            target_width = cls.round_to_multiple(
+            target_width = round_to_multiple(
                 target_width,
                 multiple_of,
             )
@@ -401,7 +486,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         )
 
         if multiple_of > 1:
-            target_height = cls.round_to_multiple(
+            target_height = round_to_multiple(
                 target_height,
                 multiple_of,
             )
@@ -426,7 +511,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         )
 
         if multiple_of > 1:
-            target_height = cls.round_to_multiple(
+            target_height = round_to_multiple(
                 target_height,
                 multiple_of,
             )
@@ -441,7 +526,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         )
 
         if multiple_of > 1:
-            target_width = cls.round_to_multiple(
+            target_width = round_to_multiple(
                 target_width,
                 multiple_of,
             )
@@ -459,8 +544,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
         width,
         height,
         scale_method,
-        crop="center",
         multiple_of=0,
+        crop="center",
     ):
         """
         Resize to explicit dimensions.
@@ -507,7 +592,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
         if multiple_of > 1:
             width, height = (
-                cls.round_dimensions_to_multiple(
+                round_dimensions_to_multiple(
                     width,
                     height,
                     multiple_of,
@@ -567,7 +652,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
         if multiple_of > 1:
             width, height = (
-                cls.round_dimensions_to_multiple(
+                round_dimensions_to_multiple(
                     width,
                     height,
                     multiple_of,
@@ -779,8 +864,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
         source_width,
         source_height,
         megapixels,
-        multiple_of,
         megapixel_priority=1.0,
+        multiple_of=0,
     ):
         """
         Calculate dimensions near the requested megapixel target while
@@ -831,12 +916,12 @@ class ResizeImageMaskAlt(io.ComfyNode):
             min(1.0, float(megapixel_priority)),
         )
 
-        base_width = cls.round_to_multiple(
+        base_width = round_to_multiple(
             ideal_width,
             multiple_of,
         )
 
-        base_height = cls.round_to_multiple(
+        base_height = round_to_multiple(
             ideal_height,
             multiple_of,
         )
@@ -953,8 +1038,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 source_width,
                 source_height,
                 megapixels,
-                multiple_of,
                 megapixel_priority,
+                multiple_of,
             )
         )
 
@@ -976,8 +1061,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
         input_tensor,
         match,
         scale_method,
-        crop="center",
         multiple_of=0,
+        crop="center",
     ):
         """
         Resize to the dimensions of another IMAGE or MASK.
@@ -998,7 +1083,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
         if multiple_of > 1:
             width, height = (
-                cls.round_dimensions_to_multiple(
+                round_dimensions_to_multiple(
                     width,
                     height,
                     multiple_of,
@@ -1047,12 +1132,12 @@ class ResizeImageMaskAlt(io.ComfyNode):
         else:
             _, height, width = input_tensor.shape
 
-        target_width = cls.floor_to_multiple(
+        target_width = floor_to_multiple(
             width,
             multiple,
         )
 
-        target_height = cls.floor_to_multiple(
+        target_height = floor_to_multiple(
             height,
             multiple,
         )
@@ -1072,8 +1157,82 @@ class ResizeImageMaskAlt(io.ComfyNode):
         )
 
     # ------------------------------------------------------------------
-    # From SmartImageResize functionality
+    # Smart Resize
     # ------------------------------------------------------------------
+
+    @classmethod
+    def smart_resize_dimensions(
+        cls,
+        image,
+        aspect_ratio,
+        resolution,
+        width,
+        height,
+        multiple_of=0,
+    ):
+        """
+        Calculate the final target dimensions for Smart Resize.
+
+        Resolution takes precedence over width/height when non-zero.
+
+        The selected aspect ratio determines the target geometry, while
+        multiple_of constrains the resulting dimensions.
+        """
+
+        oh = image.shape[1]
+        ow = image.shape[2]
+
+        # --------------------------------------------------------------
+        # Determine target resolution
+        # --------------------------------------------------------------
+
+        if resolution > 0:
+
+            target_resolution = resolution
+
+        else:
+
+            target_resolution = avg_from_dims(
+                width,
+                height,
+            )
+
+        # --------------------------------------------------------------
+        # Determine target aspect ratio
+        # --------------------------------------------------------------
+
+        if (
+            not aspect_ratio
+            or aspect_ratio
+            == "Source (Keep Aspect Ratio)"
+        ):
+
+            n, d = ar_parts_from_dims(
+                ow,
+                oh,
+            )
+
+        else:
+
+            n, d = ar_parts_from_str(
+                aspect_ratio,
+            )
+
+        # --------------------------------------------------------------
+        # Determine target dimensions
+        # --------------------------------------------------------------
+
+        target_width, target_height = dims_from_ar(
+            target_resolution,
+            n,
+            d,
+            multiple_of,
+        )
+
+        return (
+            target_width,
+            target_height,
+        )
 
     @classmethod
     def legacy_resize(
@@ -1082,7 +1241,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         width,
         height,
         method,
-        multiple_of,
+        multiple_of=0,
     ):
         """
         Calculate the dimensions and crop/pad geometry for the legacy
@@ -1105,76 +1264,10 @@ class ResizeImageMaskAlt(io.ComfyNode):
         pad_bottom = 0
 
         # --------------------------------------------------------------
-        # Keep proportion
-        # --------------------------------------------------------------
-
-        if method == "keep proportion":
-
-            avg = avg_from_dims(
-                width,
-                height,
-            )
-
-            n, d = ar_parts_from_dims(
-                ow,
-                oh,
-            )
-
-            width, height = dims_from_ar(
-                avg,
-                n,
-                d,
-                multiple_of,
-            )
-
-            ratio = max(
-                width / ow,
-                height / oh,
-            )
-
-            new_width = round(
-                ow * ratio
-            )
-
-            new_height = round(
-                oh * ratio
-            )
-
-            x = (
-                new_width - width
-            ) // 2
-
-            y = (
-                new_height - height
-            ) // 2
-
-            x2 = x + width
-            y2 = y + height
-
-            if x2 > new_width:
-                x -= (
-                    x2 - new_width
-                )
-
-            if x < 0:
-                x = 0
-
-            if y2 > new_height:
-                y -= (
-                    y2 - new_height
-                )
-
-            if y < 0:
-                y = 0
-
-            width = new_width
-            height = new_height
-
-        # --------------------------------------------------------------
         # Pad
         # --------------------------------------------------------------
 
-        elif method == "pad":
+        if method == "pad":
 
             width = (
                 width
@@ -1190,7 +1283,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
             if multiple_of > 1:
                 width, height = (
-                    cls.round_dimensions_to_multiple(
+                    round_dimensions_to_multiple(
                         width,
                         height,
                         multiple_of,
@@ -1267,6 +1360,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
         This method intentionally knows nothing about whether the input
         came from the image or mask socket. The exact same resize
         configuration can therefore be applied independently to both.
+
+        The condition is evaluated against the final target dimensions
+        before the resize operation is performed.
         """
 
         if input_tensor is None:
@@ -1284,159 +1380,449 @@ class ResizeImageMaskAlt(io.ComfyNode):
         source_width = input_tensor.shape[2]
 
         # --------------------------------------------------------------
-        # Native-style resize modes
+        # Smart Resize
         # --------------------------------------------------------------
 
-        if selected_type == "scale dimensions":
+        if selected_type == "smart_resize":
 
-            target_width = resize_type["width"]
-            target_height = resize_type["height"]
+            target_width, target_height = (
+                cls.smart_resize_dimensions(
+                    input_tensor,
+                    resize_type["aspect_ratio"],
+                    resize_type["resolution"],
+                    resize_type["width"],
+                    resize_type["height"],
+                    resize_type["multiple_of"],
+                )
+            )
 
-            outputs = cls.scale_dimensions(
-                input_tensor,
+            if cls.should_resize(
+                source_width,
+                source_height,
                 target_width,
                 target_height,
-                scale_method,
-                resize_type.get(
-                    "crop",
-                    "disabled",
-                ),
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
-            )
+                condition,
+            ):
+
+                outputs = cls.resize_to_dimensions(
+                    input_tensor,
+                    target_width,
+                    target_height,
+                    scale_method,
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Scale dimensions
+        # --------------------------------------------------------------
+
+        elif selected_type == "scale dimensions":
+
+            width = resize_type["width"]
+            height = resize_type["height"]
+            multiple_of = resize_type["multiple_of"]
+
+            # A zero width/height means that dimension is derived from
+            # the source aspect ratio.
+            if width == 0 and height == 0:
+
+                target_width = source_width
+                target_height = source_height
+
+            else:
+
+                if width == 0:
+
+                    target_width = max(
+                        1,
+                        round(
+                            source_width
+                            * height
+                            / source_height
+                        ),
+                    )
+
+                    target_height = height
+
+                elif height == 0:
+
+                    target_width = width
+
+                    target_height = max(
+                        1,
+                        round(
+                            source_height
+                            * width
+                            / source_width
+                        ),
+                    )
+
+                else:
+
+                    target_width = width
+                    target_height = height
+
+                if multiple_of > 1:
+
+                    target_width, target_height = (
+                        round_dimensions_to_multiple(
+                            target_width,
+                            target_height,
+                            multiple_of,
+                        )
+                    )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_dimensions(
+                    input_tensor,
+                    width,
+                    height,
+                    scale_method,
+                    multiple_of,
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Scale by multiplier
+        # --------------------------------------------------------------
 
         elif selected_type == "scale by multiplier":
 
-            outputs = cls.scale_by(
-                input_tensor,
-                resize_type["multiplier"],
-                scale_method,
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
-                resize_type.get(
-                    "crop",
-                    "disabled",
+            multiplier = resize_type["multiplier"]
+            multiple_of = resize_type["multiple_of"]
+
+            target_width = max(
+                1,
+                round(
+                    source_width * multiplier
                 ),
             )
+
+            target_height = max(
+                1,
+                round(
+                    source_height * multiplier
+                ),
+            )
+
+            if multiple_of > 1:
+
+                target_width, target_height = (
+                    round_dimensions_to_multiple(
+                        target_width,
+                        target_height,
+                        multiple_of,
+                    )
+                )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_by(
+                    input_tensor,
+                    multiplier,
+                    scale_method,
+                    multiple_of,
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Scale longer dimension
+        # --------------------------------------------------------------
 
         elif selected_type == "scale longer dimension":
 
-            outputs = cls.scale_longer_dimension(
-                input_tensor,
-                resize_type["longer_size"],
-                scale_method,
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
-                resize_type.get(
-                    "crop",
-                    "disabled",
-                ),
+            target_width, target_height = (
+                cls.dimensions_from_longer(
+                    source_width,
+                    source_height,
+                    resize_type["longer_size"],
+                    resize_type["multiple_of"],
+                )
             )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_longer_dimension(
+                    input_tensor,
+                    resize_type["longer_size"],
+                    scale_method,
+                    resize_type["multiple_of"],
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Scale shorter dimension
+        # --------------------------------------------------------------
 
         elif selected_type == "scale shorter dimension":
 
-            outputs = cls.scale_shorter_dimension(
-                input_tensor,
-                resize_type["shorter_size"],
-                scale_method,
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
-                resize_type.get(
-                    "crop",
-                    "disabled",
-                ),
+            target_width, target_height = (
+                cls.dimensions_from_shorter(
+                    source_width,
+                    source_height,
+                    resize_type["shorter_size"],
+                    resize_type["multiple_of"],
+                )
             )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_shorter_dimension(
+                    input_tensor,
+                    resize_type["shorter_size"],
+                    scale_method,
+                    resize_type["multiple_of"],
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Scale width
+        # --------------------------------------------------------------
 
         elif selected_type == "scale width":
 
-            outputs = cls.scale_width(
-                input_tensor,
-                resize_type["width"],
-                scale_method,
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
-                resize_type.get(
-                    "crop",
-                    "disabled",
-                ),
+            target_width, target_height = (
+                cls.dimensions_from_width(
+                    source_width,
+                    source_height,
+                    resize_type["width"],
+                    resize_type["multiple_of"],
+                )
             )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_width(
+                    input_tensor,
+                    resize_type["width"],
+                    scale_method,
+                    resize_type["multiple_of"],
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Scale height
+        # --------------------------------------------------------------
 
         elif selected_type == "scale height":
 
-            outputs = cls.scale_height(
-                input_tensor,
-                resize_type["height"],
-                scale_method,
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
-                resize_type.get(
-                    "crop",
-                    "disabled",
-                ),
+            target_width, target_height = (
+                cls.dimensions_from_height(
+                    source_width,
+                    source_height,
+                    resize_type["height"],
+                    resize_type["multiple_of"],
+                )
             )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_height(
+                    input_tensor,
+                    resize_type["height"],
+                    scale_method,
+                    resize_type["multiple_of"],
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Scale total pixels
+        # --------------------------------------------------------------
 
         elif selected_type == "scale total pixels":
 
-            outputs = cls.scale_total_pixels(
-                input_tensor,
-                resize_type["megapixels"],
-                resize_type.get(
-                    "megapixel_priority",
-                    1.0,
-                ),
-                scale_method,
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
-                resize_type.get(
-                    "crop",
-                    "disabled",
-                ),
+            target_width, target_height = (
+                cls.dimensions_for_total_pixels(
+                    source_width,
+                    source_height,
+                    resize_type["megapixels"],
+                    resize_type["megapixel_priority"],
+                    resize_type["multiple_of"],
+                )
             )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_total_pixels(
+                    input_tensor,
+                    resize_type["megapixels"],
+                    resize_type["megapixel_priority"],
+                    scale_method,
+                    resize_type["multiple_of"],
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Match size
+        # --------------------------------------------------------------
 
         elif selected_type == "match size":
 
-            outputs = cls.scale_match_size(
-                input_tensor,
-                resize_type["match"],
-                scale_method,
-                resize_type.get(
-                    "crop",
-                    "center",
-                ),
-                resize_type.get(
-                    "multiple_of",
-                    0,
-                ),
+            match = resize_type["match"]
+
+            match_is_image = cls.is_image(
+                match
             )
+
+            match_samples = cls.init_image_mask_input(
+                match,
+                match_is_image,
+            )
+
+            target_width = match_samples.shape[-1]
+            target_height = match_samples.shape[-2]
+
+            if resize_type["multiple_of"] > 1:
+
+                target_width, target_height = (
+                    round_dimensions_to_multiple(
+                        target_width,
+                        target_height,
+                        resize_type["multiple_of"],
+                    )
+                )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_match_size(
+                    input_tensor,
+                    match,
+                    scale_method,
+                    resize_type["multiple_of"],
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
+
+        # --------------------------------------------------------------
+        # Scale to multiple
+        # --------------------------------------------------------------
 
         elif selected_type == "scale to multiple":
 
-            outputs = cls.scale_to_multiple(
-                input_tensor,
-                resize_type["multiple"],
-                scale_method,
-                resize_type.get(
-                    "crop",
-                    "center",
-                ),
-            )
+            multiple = resize_type["multiple"]
+
+            if multiple <= 1:
+
+                target_width = source_width
+                target_height = source_height
+
+            else:
+
+                target_width = floor_to_multiple(
+                    source_width,
+                    multiple,
+                )
+
+                target_height = floor_to_multiple(
+                    source_height,
+                    multiple,
+                )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
+
+                outputs = cls.scale_to_multiple(
+                    input_tensor,
+                    multiple,
+                    scale_method,
+                    resize_type["crop"],
+                )
+
+            else:
+
+                outputs = input_tensor
 
         # --------------------------------------------------------------
-        # From SmartImageResize modes
+        # Legacy modes
         # --------------------------------------------------------------
 
         elif selected_type in cls.legacy_methods:
@@ -1464,42 +1850,32 @@ class ResizeImageMaskAlt(io.ComfyNode):
             )
 
             # ----------------------------------------------------------
-            # Condition
+            # Final output dimensions
+            #
+            # For "pad", new_width/new_height are the dimensions of the
+            # resized source before padding. The actual output dimensions
+            # include the padding.
             # ----------------------------------------------------------
 
-            should_resize = (
-                condition == "always"
-                or (
-                    condition == "downscale if bigger"
-                    and (
-                        source_height > new_height
-                        or source_width > new_width
-                    )
-                )
-                or (
-                    condition == "upscale if smaller"
-                    and (
-                        source_height < new_height
-                        or source_width < new_width
-                    )
-                )
-                or (
-                    condition == "if bigger area"
-                    and (
-                        source_height * source_width
-                        > new_width * new_height
-                    )
-                )
-                or (
-                    condition == "if smaller area"
-                    and (
-                        source_height * source_width
-                        < new_width * new_height
-                    )
-                )
+            target_width = (
+                new_width
+                + pad_left
+                + pad_right
             )
 
-            if should_resize:
+            target_height = (
+                new_height
+                + pad_top
+                + pad_bottom
+            )
+
+            if cls.should_resize(
+                source_width,
+                source_height,
+                target_width,
+                target_height,
+                condition,
+            ):
 
                 is_type_image = cls.is_image(
                     input_tensor
@@ -1611,6 +1987,89 @@ class ResizeImageMaskAlt(io.ComfyNode):
     def define_schema(cls):
 
         resize_options = [
+
+            io.DynamicCombo.Option(
+                "smart_resize",
+                [
+                    io.Combo.Input(
+                        "aspect_ratio",
+                        options=(
+                            cls.get_aspect_ratio_options()
+                        ),
+                        default=(
+                            "Source (Keep Aspect Ratio)"
+                        ),
+                        tooltip=(
+                            "Target aspect ratio. "
+                            "The source is scaled proportionally "
+                            "to the target resolution while "
+                            "constrained to precision of 'multiple_of'."
+                        ),
+                    ),
+
+                    io.Int.Input(
+                        "resolution",
+                        default=1024,
+                        min=0,
+                        max=MAX_RESOLUTION,
+                        step=1,
+                        tooltip=(
+                            "Target resolution. "
+                            "When greater than 0, Width and Height are ignored."
+                        ),
+                    ),
+
+                    io.Int.Input(
+                        "width",
+                        default=0,
+                        min=0,
+                        max=MAX_RESOLUTION,
+                        step=1,
+                        tooltip=(
+                            "Target width, to be used with height as an "
+                            "alternative strategy to determine target resolution. "
+                            "Ignored when resolution is greater than 0."
+                        ),
+                    ),
+
+                    io.Int.Input(
+                        "height",
+                        default=0,
+                        min=0,
+                        max=MAX_RESOLUTION,
+                        step=1,
+                        tooltip=(
+                            "Target height, to be used with width as an "
+                            "alternative strategy to determine target resolution. "
+                            "Ignored when resolution is greater than 0."
+                        ),
+                    ),
+
+                    io.Int.Input(
+                        "multiple_of",
+                        default=0,
+                        min=0,
+                        max=512,
+                        step=1,
+                        tooltip=(
+                            "Constrain the dimensions "
+                            "to the nearest multiple of this value."
+                        ),
+                        advanced=True,
+                    ),
+
+                    io.Combo.Input(
+                        "crop",
+                        options=cls.crop_methods,
+                        default="center",
+                        tooltip=(
+                            "How to handle aspect-ratio mismatch. "
+                            "'disabled' stretches to fit; "
+                            "'center' crops to maintain aspect ratio."
+                        ),
+                    ),
+                ],
+            ),
 
             # ----------------------------------------------------------
             # Native-style resize modes
@@ -2011,42 +2470,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
             ),
 
             # ----------------------------------------------------------
-            # From SmartImageResize modes
+            # Pad
             # ----------------------------------------------------------
-
-            io.DynamicCombo.Option(
-                "keep proportion",
-                [
-                    io.Int.Input(
-                        "width",
-                        default=512,
-                        min=0,
-                        max=MAX_RESOLUTION,
-                        step=1,
-                    ),
-
-                    io.Int.Input(
-                        "height",
-                        default=512,
-                        min=0,
-                        max=MAX_RESOLUTION,
-                        step=1,
-                    ),
-
-                    io.Int.Input(
-                        "multiple_of",
-                        default=0,
-                        min=0,
-                        max=512,
-                        step=1,
-                        tooltip=(
-                            "Constrain the target geometry "
-                            "to this multiple."
-                        ),
-                        advanced=True,
-                    ),
-                ],
-            ),
 
             io.DynamicCombo.Option(
                 "pad",
@@ -2244,7 +2669,7 @@ class SmartImageResizeAlt(io.ComfyNode):
     def define_schema(cls):
         return io.Schema(
             node_id="SmartImageResizeAlt",
-            display_name="Smart Image Resize Alt ◯",
+            display_name="Smart Image Resize Alt ◯ [Deprecated]",
             description="Resize an image using multiple methods while optionally preserving aspect ratio and enforcing dimension multiples.",
             category="essentials/image manipulation",
             search_aliases=[
@@ -2359,46 +2784,6 @@ class SmartImageResizeAlt(io.ComfyNode):
         if method == "stretch":
             new_width = width if width > 0 else ow
             new_height = height if height > 0 else oh
-
-        elif method == "keep proportion":
-            avg = avg_from_dims(width, height)
-            n, d = ar_parts_from_dims(ow, oh)
-
-            width, height = dims_from_ar(
-                avg,
-                n,
-                d,
-                multiple_of,
-            )
-
-            ratio = max(
-                width / ow,
-                height / oh,
-            )
-
-            new_width = round(ow * ratio)
-            new_height = round(oh * ratio)
-
-            x = (new_width - width) // 2
-            y = (new_height - height) // 2
-
-            x2 = x + width
-            y2 = y + height
-
-            if x2 > new_width:
-                x -= x2 - new_width
-
-            if x < 0:
-                x = 0
-
-            if y2 > new_height:
-                y -= y2 - new_height
-
-            if y < 0:
-                y = 0
-
-            width = new_width
-            height = new_height
 
         elif method == "pad":
             width = width if width > 0 else ow

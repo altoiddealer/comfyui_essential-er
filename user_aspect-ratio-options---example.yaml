@@ -1,0 +1,30 @@
+# Overrides for the aspect ratio options used in Resize Image/Mask node
+#
+# To customize this list:
+#
+# 1. Duplicate this file.
+# 2. Remove the ---example suffix (making it: 'user_smart-resize-aspect-ratio-options.yaml')
+# 3. Edit the list below.
+# 4. Restart ComfyUI.
+#
+# Each option must begin with a valid ratio in the form:
+#
+#   width:height
+#
+# Optional descriptive text may follow.
+
+- Source (Keep Aspect Ratio)
+
+- 1:1 (Square)
+
+- 2:3 (Portrait Photo)
+- 3:2 (Photo)
+
+- 3:4 (Portrait Standard)
+- 4:3 (Standard)
+
+- 9:16 (Portrait Widescreen)
+- 16:9 (Widescreen)
+
+- 9:21 (Portrait Ultrawide)
+- 21:9 (Ultrawide)

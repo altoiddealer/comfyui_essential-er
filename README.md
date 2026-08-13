@@ -8,15 +8,21 @@ Enhanced versions of existing nodes.
 
 ## Included Nodes
 
-### Smart Image Resize Alt
+### Resize Image/Mask Alt
 
-Customized version of **Image Resize+** from [ComfyUI-essentials](https://github.com/cubiq/ComfyUI_essentials)
+Customized version of native ComfyUI node **Resize Image/Mask**
 
-The only difference between **Smart Image Resize Alt** and **Image Resize+** is the logic for the **`keep_proportions`** option.
+| Feature                     | **ResizeImageMaskAlt**                                                                                   | **ComfyUI `ResizeImageMask`**                                                                |
+| --------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| **Image & Mask Input**      | Can resize an **Image, Mask, or both simultaneously**                                                    | Resizes an **Image or Mask**, but not both simultaneously                                    |
+| **Output Dimensions**       | Can constrain dimensions to **multiples of** a specified value                                           | No **multiple-of** dimension constraint                                                      |
+| **Resize Condition**        | Optional **condition** can prevent unwanted resizing during batch processing                             | **Always resizes**; no conditional filtering                                                 |
+| **Aspect Ratio / Cropping** | **Configurable crop method** for all aspect-ratio mismatches                                             | Crop behavior **sometimes** configurable / hardcoded for some resize types                   |
+| **Smart Resize**            | **Smart Resize** scales to a target resolution while conforming to the source or a selected aspect ratio | Not available                                                                                |
+| **Pad**                     | Built-in **Pad** method with selectable **black, grey, or white** padding                                | No Pad method; ComfyUI provides a separate **Resize And Pad Image** node with fewer controls |
+| **Combined Controls**       | Resize, crop, pad, conditions, and dimension constraints are available within one node                   | Functionality is split between multiple nodes and has fewer configuration options            |
 
-In **Smart Image Resize Alt** the result has the closest matching megapixels count to the average **width** and **height** values - instead of making one dimension match an input and scaling the other down (which results in undesirable resolutions)
-
-<img width="1037" height="574" alt="Screenshot 2025-07-27 134150" src="https://github.com/user-attachments/assets/5d27b7b5-9be6-40ca-ba9a-e1874afc65a3" />
+<img width="1117" height="647" alt="image" src="https://github.com/user-attachments/assets/e4108968-e797-4fd3-8da4-dc59cdb83902" />
 
 ---
 
@@ -45,3 +51,18 @@ This can greatly simplify use cases for joining many similar clips together, whe
 Same as above, but also handles audio!  The audio must be sourced from videos that share the same FPS, and that FPS must be specified in the node input widget.
 
 <img width="1577" height="888" alt="Screenshot 2026-08-08 232456" src="https://github.com/user-attachments/assets/5c59ec5b-61a2-4597-8adb-f12a9b80aeb2" />
+
+<details>
+  <summary>DEPRECATED NODES</summary>
+
+  **Smart Image Resize Alt [Deprecated]**
+
+  Customized version of **Image Resize+** from [ComfyUI-essentials](https://github.com/cubiq/ComfyUI_essentials)
+
+  The only difference between **Smart Image Resize Alt** and **Image Resize+** is the logic for the **`keep_proportions`** option.
+
+  In **Smart Image Resize Alt** the result has the closest matching megapixels count to the average **width** and **height** values - instead of making one dimension match an input and scaling the other down (which results in undesirable resolutions)
+
+  <img width="1037" height="574" alt="Screenshot 2025-07-27 134150" src="https://github.com/user-attachments/assets/5d27b7b5-9be6-40ca-ba9a-e1874afc65a3" />
+
+</details>

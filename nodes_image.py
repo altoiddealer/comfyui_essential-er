@@ -435,13 +435,10 @@ class ResizeImageMaskAlt(io.ComfyNode):
         # Determine target resolution
         if resolution > 0:
             target_resolution = resolution
-        elif width + height > 0:
-            target_resolution = avg_from_dims(width, height)
         else:
-            raise ValueError(
-                "[ResizeImageMaskAlt] invalid target resolution: "
-                "resolution, width, and height cannot all be 0"
-            )
+            width = width or ow
+            height = height or oh
+            target_resolution = avg_from_dims(width, height)
 
         # Determine target aspect ratio
         if (not aspect_ratio
@@ -1774,8 +1771,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target width, to be used with height as an alternative strategy to determine target resolution. "
-                            "Ignored when resolution is greater than 0."
+                            "Ignored when resolution > 0. "
+                            "Width used with height as an alternative strategy to determine target resolution. "
+                            "Set to 0 to retain source image dimension."
                         ),
                     ),
 
@@ -1786,8 +1784,9 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Target height, to be used with width as an alternative strategy to determine target resolution. "
-                            "Ignored when resolution is greater than 0."
+                            "Ignored when resolution > 0. "
+                            "Height used with width as an alternative strategy to determine target resolution. "
+                            "Set to 0 to retain source image dimension."
                         ),
                     ),
 

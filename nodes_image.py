@@ -417,8 +417,6 @@ class ResizeImageMaskAlt(io.ComfyNode):
         aspect_ratio,
         megapixels,
         megapixel_priority,
-        width,
-        height,
         multiple_of=0,
     ):
         """
@@ -432,9 +430,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
             accuracy.
 
         When megapixels <= 0:
-            Fall back to the width/height resolution strategy.
-            Zero width/height values retain the corresponding source
-            dimension. This preserves the legacy fallback behavior.
+            Retain image pixel count as a base
         """
 
         oh = image.shape[1]
@@ -480,8 +476,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
         # Width/height fallback strategy
         # ----------------------------------------------------------
 
-        width = width or ow
-        height = height or oh
+        width = ow
+        height = oh
 
         target_resolution = avg_from_dims(
             width,
@@ -1261,8 +1257,6 @@ class ResizeImageMaskAlt(io.ComfyNode):
                     resize_type["aspect_ratio"],
                     resize_type["megapixels"],
                     resize_type["megapixel_priority"],
-                    resize_type["width"],
-                    resize_type["height"],
                     resize_type["multiple_of"],
                 )
             )
@@ -1873,32 +1867,6 @@ class ResizeImageMaskAlt(io.ComfyNode):
                     cls.get_option("megapixel_priority"),
 
                     cls.get_option("multiple_of"),
-
-                    io.Int.Input(
-                        "width",
-                        default=overrides.get("nodes_image", "resize_image_mask_alt", "smart_resize", "width", default=0),
-                        min=0,
-                        max=MAX_RESOLUTION,
-                        step=1,
-                        tooltip=(
-                            "Used only when megapixels = 0. "
-                            "Width is used with Height to determine target resolution, as an alternate resize strategy. "
-                            "Set to 0 to retain the source dimension."
-                        ),
-                    ),
-
-                    io.Int.Input(
-                        "height",
-                        default=overrides.get("nodes_image", "resize_image_mask_alt", "smart_resize", "width", default=0),
-                        min=0,
-                        max=MAX_RESOLUTION,
-                        step=1,
-                        tooltip=(
-                            "Used only when megapixels = 0. "
-                            "Height is used with Width to determine target resolution, as an alternate resize strategy. "
-                            "Set to 0 to retain the source dimension."
-                        ),
-                    ),
 
                     cls.get_option("crop"),
                 ],

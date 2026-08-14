@@ -26,8 +26,6 @@ nodes_image:
 
     # 'smart resize' resize type
     smart_resize:
-      width: 0
-      height: 0
       # Aspect Ratio options must begin with 'width:height'
       # Optional descriptive text may follow.
       aspect_ratios:

@@ -1841,10 +1841,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 step=0.1,
                 tooltip=(
                     "While multiple_of > 0: "
-                    "Controls the tradeoff between hitting the "
-                    "target megapixel count and preserving the "
-                    "original aspect ratio. 1.0 prioritizes "
-                    "megapixel precision (default behavior); "
+                    "Controls the tradeoff between hitting the target megapixel count / aspect ratio. "
+                    "1.0 prioritizes megapixel precision (default behavior); "
                     "0.0 prioritizes aspect-ratio precision."
                 ),
                 advanced=True,

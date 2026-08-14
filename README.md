@@ -18,11 +18,11 @@ Customized version of native ComfyUI node **Resize Image/Mask**
 | **Output Dimensions**       | Can constrain dimensions to **multiples of** a specified value                                           | No **multiple-of** dimension constraint                                                      |
 | **Resize Condition**        | Optional **condition** can prevent unwanted resizing during batch processing                             | **Always resizes**; no conditional filtering                                                 |
 | **Aspect Ratio / Cropping** | **Configurable crop method** for all aspect-ratio mismatches                                             | Crop behavior **sometimes** configurable / hardcoded for some resize types                   |
-| **Smart Resize**            | **Smart Resize** scales to a target resolution while conforming to the source or a selected aspect ratio | Not available                                                                                |
+| **Smart Resize**            | **Smart Resize** scales to a target megapixels while conforming to the source or a selected aspect ratio | Not available                                                                                |
 | **Pad**                     | Built-in **Pad** method with selectable **black, grey, or white** padding                                | No Pad method; ComfyUI provides a separate **Resize And Pad Image** node with fewer controls |
 | **Combined Controls**       | Resize, crop, pad, conditions, and dimension constraints are available within one node                   | Functionality is split between multiple nodes and has fewer configuration options            |
 
-<img width="1117" height="647" alt="image" src="https://github.com/user-attachments/assets/e4108968-e797-4fd3-8da4-dc59cdb83902" />
+<img width="1159" height="663" alt="Screenshot 2026-08-13 205435" src="https://github.com/user-attachments/assets/5909da1f-29ff-4088-9ca1-fd219597c67e" />
 
 ---
 

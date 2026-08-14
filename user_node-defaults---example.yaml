@@ -24,7 +24,8 @@ nodes_image:
   # Node: Resize Image/Mask Alt
   resize_image_mask_alt:
 
-    # 'smart resize' resize type
+    # smart resize methods
+    # scale total pixels / scale to resolution
     smart_resize:
       # Aspect Ratio options must begin with 'width:height'
       # Optional descriptive text may follow.
@@ -43,10 +44,6 @@ nodes_image:
     scale_x_dimension:
       longer_size: 512
       shorter_size: 512
-
-    # 'scale to multiple' resize type
-    scale_to_multiple:
-      multiple: 8
 
 
 # Nodes focused on videos

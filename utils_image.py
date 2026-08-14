@@ -183,7 +183,6 @@ def ar_parts_from_str(ar_str: str):
 # Misc helpers
 # ------------------------------------------------------------------
 
-@staticmethod
 def pad_color_value(color):
     """
     Convert a pad color name to the normalized tensor value used by

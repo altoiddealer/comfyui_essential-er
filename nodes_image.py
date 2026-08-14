@@ -415,7 +415,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
         cls,
         image,
         aspect_ratio,
-        resolution,
+        megapixels,
+        megapixel_priority,
         width,
         height,
         multiple_of=0,
@@ -423,40 +424,83 @@ class ResizeImageMaskAlt(io.ComfyNode):
         """
         Calculate the final target dimensions for Smart Resize.
 
-        Resolution takes precedence over width/height when non-zero.
+        When megapixels > 0:
+            Target total pixel count is determined by megapixels.
+            The selected aspect ratio determines the target geometry.
+            When multiple_of is active, megapixel_priority controls
+            the tradeoff between total-pixel accuracy and aspect-ratio
+            accuracy.
 
-        The selected aspect ratio determines the target geometry, while
-        multiple_of constrains the resulting dimensions.
+        When megapixels <= 0:
+            Fall back to the width/height resolution strategy.
+            Zero width/height values retain the corresponding source
+            dimension. This preserves the legacy fallback behavior.
         """
 
         oh = image.shape[1]
         ow = image.shape[2]
 
-        # Determine target resolution
-        if resolution > 0:
-            target_resolution = resolution
-        else:
-            width = width or ow
-            height = height or oh
-            target_resolution = avg_from_dims(width, height)
-
-        # Determine target aspect ratio
-        if (not aspect_ratio
-            or aspect_ratio == "Source (Keep Aspect Ratio)"):
-
+        # Determine target aspect ratio.
+        if (
+            not aspect_ratio
+            or aspect_ratio == "Source (Keep Aspect Ratio)"
+        ):
             n, d = ar_parts_from_dims(ow, oh)
+
         else:
             n, d = ar_parts_from_str(aspect_ratio)
 
-        # Determine target dimensions
-        target_width, target_height = dims_from_ar(
-            target_resolution,
-            n,
-            d,
-            multiple_of,
+        # ----------------------------------------------------------
+        # Megapixels strategy
+        # ----------------------------------------------------------
+
+        if megapixels > 0:
+
+            target_pixels = (
+                megapixels
+                * 1024
+                * 1024
+            )
+
+            target_width, target_height = (
+                cls.dimensions_for_target_pixels(
+                    target_pixels,
+                    n / d,
+                    megapixel_priority,
+                    multiple_of,
+                )
+            )
+
+            return (
+                target_width,
+                target_height,
+            )
+
+        # ----------------------------------------------------------
+        # Width/height fallback strategy
+        # ----------------------------------------------------------
+
+        width = width or ow
+        height = height or oh
+
+        target_resolution = avg_from_dims(
+            width,
+            height,
         )
 
-        return (target_width, target_height)
+        target_width, target_height = (
+            dims_from_ar(
+                target_resolution,
+                n,
+                d,
+                multiple_of,
+            )
+        )
+
+        return (
+            target_width,
+            target_height,
+        )
 
     # ------------------------------------------------------------------
     # Scale dimensions
@@ -748,17 +792,16 @@ class ResizeImageMaskAlt(io.ComfyNode):
     # ------------------------------------------------------------------
 
     @classmethod
-    def dimensions_for_total_pixels(
+    def dimensions_for_target_pixels(
         cls,
-        source_width,
-        source_height,
-        megapixels,
+        target_pixels,
+        aspect_ratio,
         megapixel_priority=1.0,
         multiple_of=0,
     ):
         """
-        Calculate dimensions near the requested megapixel target while
-        balancing total-pixel accuracy against source aspect-ratio accuracy.
+        Calculate dimensions near the requested pixel count while
+        balancing total-pixel accuracy against aspect-ratio accuracy.
 
         megapixel_priority:
             1.0 = prioritize total-pixel accuracy.
@@ -771,16 +814,12 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
         target_pixels = max(
             1,
-            int(round(
-                megapixels
-                * 1024
-                * 1024
-            )),
+            int(round(target_pixels)),
         )
 
-        aspect_ratio = (
-            source_width
-            / source_height
+        aspect_ratio = max(
+            1e-12,
+            float(aspect_ratio),
         )
 
         ideal_width = math.sqrt(
@@ -891,6 +930,49 @@ class ResizeImageMaskAlt(io.ComfyNode):
         _, _, _, width, height = candidates[0]
 
         return width, height
+
+    @classmethod
+    def dimensions_for_total_pixels(
+        cls,
+        source_width,
+        source_height,
+        megapixels,
+        megapixel_priority=1.0,
+        multiple_of=0,
+    ):
+        """
+        Calculate dimensions near the requested megapixel target while
+        preserving the source aspect ratio.
+
+        megapixel_priority:
+            1.0 = prioritize total-pixel accuracy.
+            0.0 = prioritize aspect-ratio accuracy.
+            Values between 0.0 and 1.0 blend the two priorities.
+
+        When multiple_of is active, only dimension pairs that satisfy
+        the constraint are considered.
+        """
+
+        target_pixels = max(
+            1,
+            int(round(
+                megapixels
+                * 1024
+                * 1024
+            )),
+        )
+
+        aspect_ratio = (
+            source_width
+            / source_height
+        )
+
+        return cls.dimensions_for_target_pixels(
+            target_pixels,
+            aspect_ratio,
+            megapixel_priority,
+            multiple_of,
+        )
 
     @classmethod
     def scale_total_pixels(
@@ -1177,7 +1259,8 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 cls.smart_resize_dimensions(
                     input_tensor,
                     resize_type["aspect_ratio"],
-                    resize_type["resolution"],
+                    resize_type["megapixels"],
+                    resize_type["megapixel_priority"],
                     resize_type["width"],
                     resize_type["height"],
                     resize_type["multiple_of"],
@@ -1732,6 +1815,41 @@ class ResizeImageMaskAlt(io.ComfyNode):
                 ),
             )
 
+        elif name == "megapixels":
+            return io.Float.Input(
+                "megapixels",
+                default=overrides.get("nodes_image", "shared", "megapixels", default=1.0),
+                min=0.0,
+                max=16.0,
+                step=0.01,
+                tooltip=(
+                    "Target total megapixels. "
+                    "1.0 is approximately 1,048,576 pixels (≈ 1024×1024). "
+                    "Aspect ratio is preserved by default. "
+                    "Constraining the dimensions via multiple_of "
+                    "requires a tradeoff between megapixel and "
+                    "aspect-ratio precision."
+                ),
+            )
+
+        elif name == "megapixel_priority":
+            return io.Float.Input(
+                "megapixel_priority",
+                default=overrides.get("nodes_image", "shared", "megapixel_priority", default=1.0),
+                min=0.0,
+                max=1.0,
+                step=0.1,
+                tooltip=(
+                    "While multiple_of > 0: "
+                    "Controls the tradeoff between hitting the "
+                    "target megapixel count and preserving the "
+                    "original aspect ratio. 1.0 prioritizes "
+                    "megapixel precision (default behavior); "
+                    "0.0 prioritizes aspect-ratio precision."
+                ),
+                advanced=True,
+            )
+
         return None
 
     @classmethod
@@ -1748,21 +1866,15 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         default=("Source (Keep Aspect Ratio)"),
                         tooltip=(
                             "Target aspect ratio. "
-                            "The source is scaled proportionally to the target resolution "
-                            "while constrained to precision of 'multiple_of'."
+                            "The source is scaled proportionally while constrained to precision of 'multiple_of'."
                         ),
                     ),
 
-                    io.Int.Input(
-                        "resolution",
-                        default=overrides.get("nodes_image", "shared", "resolution", default=512),
-                        min=0,
-                        max=MAX_RESOLUTION,
-                        step=1,
-                        tooltip=(
-                            "Target resolution. When greater than 0, Width and Height are ignored."
-                        ),
-                    ),
+                    cls.get_option("megapixels"),
+
+                    cls.get_option("megapixel_priority"),
+
+                    cls.get_option("multiple_of"),
 
                     io.Int.Input(
                         "width",
@@ -1771,26 +1883,24 @@ class ResizeImageMaskAlt(io.ComfyNode):
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Ignored when resolution > 0. "
-                            "Width used with height as an alternative strategy to determine target resolution. "
-                            "Set to 0 to retain source image dimension."
+                            "Used only when megapixels = 0. "
+                            "Width is used with Height to determine target resolution, as an alternate resize strategy. "
+                            "Set to 0 to retain the source dimension."
                         ),
                     ),
 
                     io.Int.Input(
                         "height",
-                        default=overrides.get("nodes_image", "resize_image_mask_alt", "smart_resize", "height", default=0),
+                        default=overrides.get("nodes_image", "resize_image_mask_alt", "smart_resize", "width", default=0),
                         min=0,
                         max=MAX_RESOLUTION,
                         step=1,
                         tooltip=(
-                            "Ignored when resolution > 0. "
-                            "Height used with width as an alternative strategy to determine target resolution. "
-                            "Set to 0 to retain source image dimension."
+                            "Used only when megapixels = 0. "
+                            "Height is used with Width to determine target resolution, as an alternate resize strategy. "
+                            "Set to 0 to retain the source dimension."
                         ),
                     ),
-
-                    cls.get_option("multiple_of"),
 
                     cls.get_option("crop"),
                 ],
@@ -1937,40 +2047,11 @@ class ResizeImageMaskAlt(io.ComfyNode):
             io.DynamicCombo.Option(
                 "scale total pixels",
                 [
-                    io.Float.Input(
-                        "megapixels",
-                        default=overrides.get("nodes_image", "shared", "megapixels", default=1.0),
-                        min=0.01,
-                        max=16.0,
-                        step=0.01,
-                        tooltip=(
-                            "Target total megapixels. "
-                            "1.0 is approximately 1,048,576 pixels (≈ 1024×1024). "
-                            "Aspect ratio is preserved by default. "
-                            "Constraining the dimensions via multiple_of "
-                            "requires a tradeoff between megapixel and "
-                            "aspect-ratio precision."
-                        ),
-                    ),
+                    cls.get_option("megapixels"),
+
+                    cls.get_option("megapixel_priority"),
 
                     cls.get_option("multiple_of"),
-
-                    io.Float.Input(
-                        "megapixel_priority",
-                        default=overrides.get("nodes_image", "resize_image_mask_alt", "scale_total_pixels", "megapixel_priority", default=1.0),
-                        min=0.0,
-                        max=1.0,
-                        step=0.1,
-                        tooltip=(
-                            "While multiple_of > 0: "
-                            "Controls the tradeoff between hitting the "
-                            "target megapixel count and preserving the "
-                            "original aspect ratio. 1.0 prioritizes "
-                            "megapixel precision (default behavior); "
-                            "0.0 prioritizes aspect-ratio precision."
-                        ),
-                        advanced=True,
-                    ),
 
                     cls.get_option("crop"),
                 ],

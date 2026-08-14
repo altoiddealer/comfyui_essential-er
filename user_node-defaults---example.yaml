@@ -16,7 +16,7 @@ nodes_image:
     width: 512
     height: 512
     megapixels: 1.0
-    resolution: 512
+    megapixel_priority: 1.0
     multiplier: 1.0
     multiple_of: 32
 
@@ -45,10 +45,6 @@ nodes_image:
     scale_x_dimension:
       longer_size: 512
       shorter_size: 512
-
-    # 'scale total pixels' resize type
-    scale_total_pixels:
-      megapixel_priority: 1.0
 
     # 'scale to multiple' resize type
     scale_to_multiple:

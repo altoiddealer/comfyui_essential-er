@@ -874,7 +874,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
         cls,
         target_pixels,
         aspect_ratio,
-        megapixel_priority=1.0,
+        megapixel_priority=0.5,
         multiple_of=0,
     ):
         """
@@ -1704,7 +1704,7 @@ class ResizeImageMaskAlt(io.ComfyNode):
 
                     io.Float.Input(
                         "megapixel_priority",
-                        default=overrides.get("nodes_image", "shared", "megapixel_priority", default=1.0),
+                        default=overrides.get("nodes_image", "shared", "megapixel_priority", default=0.5),
                         min=0.0,
                         max=1.0,
                         step=0.1,

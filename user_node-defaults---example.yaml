@@ -16,7 +16,7 @@ nodes_image:
     width: 512
     height: 512
     megapixels: 1.0
-    megapixel_priority: 1.0
+    megapixel_priority: 0.5
     multiplier: 1.0
     multiple_of: 32
 

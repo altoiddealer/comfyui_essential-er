@@ -2240,6 +2240,46 @@ class SmartImageResizeAlt(io.ComfyNode):
             new_width = width if width > 0 else ow
             new_height = height if height > 0 else oh
 
+        elif method == "keep proportion":
+            avg = avg_from_dims(width, height)
+            n, d = ar_parts_from_dims(ow, oh)
+
+            width, height = dims_from_ar(
+                avg,
+                n,
+                d,
+                multiple_of,
+            )
+
+            ratio = max(
+                width / ow,
+                height / oh,
+            )
+
+            new_width = round(ow * ratio)
+            new_height = round(oh * ratio)
+
+            x = (new_width - width) // 2
+            y = (new_height - height) // 2
+
+            x2 = x + width
+            y2 = y + height
+
+            if x2 > new_width:
+                x -= x2 - new_width
+
+            if x < 0:
+                x = 0
+
+            if y2 > new_height:
+                y -= y2 - new_height
+
+            if y < 0:
+                y = 0
+
+            width = new_width
+            height = new_height
+
         elif method == "pad":
             width = width if width > 0 else ow
             height = height if height > 0 else oh

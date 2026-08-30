@@ -15,10 +15,10 @@ class PassOrNone(io.ComfyNode):
                 "blank",
             ],
             inputs=[
-                io.AnyType.Input("input", tooltip="Passes the input through, or outputs None when no input is provided.", optional=True),
+                io.AnyType.Input("anything", tooltip="Passes the input through, or outputs None when no input is provided.", optional=True),
             ],
             outputs=[
-                io.AnyType.Output("any"),
+                io.AnyType.Output("output"),
                 io.Boolean.Output("is_none"),
             ],
         )

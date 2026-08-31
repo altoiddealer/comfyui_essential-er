@@ -24,8 +24,8 @@ class PassOrNone(io.ComfyNode):
         )
 
     @classmethod
-    def execute(cls, input=None):
+    def execute(cls, anything=None):
         return io.NodeOutput(
-            input,
-            input is None,
+            anything,
+            anything is None,
         )

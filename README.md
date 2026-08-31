@@ -25,6 +25,15 @@ Customized version of native ComfyUI node **Resize Image/Mask**
 
 <img width="1151" height="604" alt="Screenshot 2026-08-14 163454" src="https://github.com/user-attachments/assets/9fb6438c-ad0a-4f93-a8e2-a72d0c1bf11f" />
 
+---
+
+### Pass or None
+
+Passes an input through, or outputs None when no input is provided.
+
+Also outputs a boolean flag (True / False) for "`is_none`", as this node will mainly be used ahead of conditional nodes (example: `If/Else`)
+
+<img width="1493" height="578" alt="Screenshot 2026-08-30 200442" src="https://github.com/user-attachments/assets/0cf927b4-8d31-4681-9f8e-536ea3f43f63" />
 
 ---
 

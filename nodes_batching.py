@@ -45,8 +45,8 @@ class MergeImageBatchList(io.ComfyNode):
                 io.Combo.Input(
                     "overlap_side",
                     options=[
-                        "source",
-                        "new_images",
+                        "previous",
+                        "next",
                     ],
                     default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_side", default="source"),
                     tooltip="Determines which batch supplies the first side of the overlap.",
@@ -324,8 +324,8 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                 io.Combo.Input(
                     "overlap_side",
                     options=[
-                        "source",
-                        "new_images",
+                        "previous",
+                        "next",
                     ],
                     default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_side", default="source"),
                     tooltip=(

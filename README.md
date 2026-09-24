@@ -29,18 +29,11 @@ Customized version of native ComfyUI node **Resize Image/Mask**
 
 ### Pass or None
 
-Passes an input through, or outputs None when no input is provided.
+Passes the first non-None value through, or outputs None when all inputs are None/not provided.
 
 Also outputs a boolean flag (True / False) for "`is_none`", as this node will mainly be used ahead of conditional nodes (example: `If/Else`)
 
-<img width="1012" height="374" alt="1111111111" src="https://github.com/user-attachments/assets/e236b8fc-51b9-4bc4-be53-ed879d468e9a" />
-
-<details>
-  <summary>More advanced example</summary>
-  
-  <img width="1493" height="578" alt="Screenshot 2026-08-30 200442" src="https://github.com/user-attachments/assets/064948df-541b-4916-b0f1-4f6b5c513864" />
-
-</details>
+<img width="1854" height="688" alt="passornone" src="https://github.com/user-attachments/assets/4eb2f025-f78e-4ac7-be71-8b29a29ef708" />
 
 ---
 

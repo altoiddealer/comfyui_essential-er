@@ -48,7 +48,7 @@ class MergeImageBatchList(io.ComfyNode):
                         "previous",
                         "next",
                     ],
-                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_side", default="source"),
+                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_side", default="previous"),
                     tooltip="Determines which batch supplies the first side of the overlap.",
                 ),
 
@@ -62,7 +62,14 @@ class MergeImageBatchList(io.ComfyNode):
                         "perceptual_crossfade",
                     ],
                     default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_mode", default="linear_blend"),
-                    tooltip="How overlapping images are combined.",
+                    tooltip=(
+                        "How overlapping images are combined:\n"
+                        "• cut: Hard transition; one batch replaces the other.\n"
+                        "• linear_blend: Constant-rate crossfade.\n"
+                        "• ease_in_out: Smooth crossfade with gentle transitions at both ends.\n"
+                        "• filmic_crossfade: Gamma-adjusted crossfade for more natural brightness.\n"
+                        "• perceptual_crossfade: Lab color-space crossfade for more perceptually natural color transitions."
+                    ),
                 ),
             ],
 
@@ -75,40 +82,40 @@ class MergeImageBatchList(io.ComfyNode):
 
     @staticmethod
     def merge_batches(
-        source_images,
-        new_images,
+        previous_images,
+        next_images,
         overlap,
         overlap_side,
         overlap_mode,
     ):
-        if source_images.shape[1:3] != new_images.shape[1:3]:
+        if previous_images.shape[1:3] != next_images.shape[1:3]:
             raise ValueError(
-                f"Source and new images must have same shape: "
-                f"{source_images.shape[1:3]} vs {new_images.shape[1:3]}"
+                f"Previous and next images must have same shape: "
+                f"{previous_images.shape[1:3]} vs {next_images.shape[1:3]}"
             )
 
         overlap = min(
             overlap,
-            len(source_images),
-            len(new_images),
+            len(previous_images),
+            len(next_images),
         )
 
         if overlap <= 0:
             return torch.cat(
-                (source_images, new_images),
+                (previous_images, next_images),
                 dim=0,
             )
 
-        prefix = source_images[:-overlap]
+        prefix = previous_images[:-overlap]
 
-        if overlap_side == "source":
-            blend_src = source_images[-overlap:]
-            blend_dst = new_images[:overlap]
+        if overlap_side == "previous":
+            blend_src = previous_images[-overlap:]
+            blend_dst = next_images[:overlap]
         else:
-            blend_src = new_images[:overlap]
-            blend_dst = source_images[-overlap:]
+            blend_src = next_images[:overlap]
+            blend_dst = previous_images[-overlap:]
 
-        suffix = new_images[overlap:]
+        suffix = next_images[overlap:]
 
         if overlap_mode == "linear_blend":
             alpha = torch.linspace(
@@ -198,19 +205,19 @@ class MergeImageBatchList(io.ComfyNode):
             )
 
         elif overlap_mode == "cut":
-            if overlap_side == "new_images":
+            if overlap_side == "next_images":
                 return torch.cat(
                     (
-                        source_images,
-                        new_images[overlap:],
+                        previous_images,
+                        next_images[overlap:],
                     ),
                     dim=0,
                 )
 
             return torch.cat(
                 (
-                    source_images[:-overlap],
-                    new_images,
+                    previous_images[:-overlap],
+                    next_images,
                 ),
                 dim=0,
             )
@@ -327,7 +334,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                         "previous",
                         "next",
                     ],
-                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_side", default="source"),
+                    default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_side", default="previous"),
                     tooltip=(
                         "Determines which batch supplies the first side "
                         "of the overlap."
@@ -345,7 +352,12 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                     ],
                     default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap_mode", default="linear_blend"),
                     tooltip=(
-                        "How overlapping images and audio are combined."
+                        "How overlapping images and audio are combined:\n"
+                        "• cut: Hard transition; one batch replaces the other.\n"
+                        "• linear_blend: Constant-rate crossfade.\n"
+                        "• ease_in_out: Smooth crossfade with gentle transitions at both ends.\n"
+                        "• filmic_crossfade: Gamma-adjusted image crossfade with a smooth audio fade.\n"
+                        "• perceptual_crossfade: Lab color-space image crossfade with equal-power audio fade."
                     ),
                 ),
             ],
@@ -367,40 +379,40 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
     @staticmethod
     def merge_image_batches(
-        source_images,
-        new_images,
+        previous_images,
+        next_images,
         overlap,
         overlap_side,
         overlap_mode,
     ):
-        if source_images.shape[1:3] != new_images.shape[1:3]:
+        if previous_images.shape[1:3] != next_images.shape[1:3]:
             raise ValueError(
-                f"Source and new images must have same shape: "
-                f"{source_images.shape[1:3]} vs {new_images.shape[1:3]}"
+                f"Previous and next images must have same shape: "
+                f"{previous_images.shape[1:3]} vs {next_images.shape[1:3]}"
             )
 
         overlap = min(
             overlap,
-            len(source_images),
-            len(new_images),
+            len(previous_images),
+            len(next_images),
         )
 
         if overlap <= 0:
             return torch.cat(
-                (source_images, new_images),
+                (previous_images, next_images),
                 dim=0,
             )
 
-        prefix = source_images[:-overlap]
+        prefix = previous_images[:-overlap]
 
-        if overlap_side == "source":
-            blend_src = source_images[-overlap:]
-            blend_dst = new_images[:overlap]
+        if overlap_side == "previous":
+            blend_src = previous_images[-overlap:]
+            blend_dst = next_images[:overlap]
         else:
-            blend_src = new_images[:overlap]
-            blend_dst = source_images[-overlap:]
+            blend_src = next_images[:overlap]
+            blend_dst = previous_images[-overlap:]
 
-        suffix = new_images[overlap:]
+        suffix = next_images[overlap:]
 
         if overlap_mode == "linear_blend":
             alpha = torch.linspace(
@@ -515,19 +527,19 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
             )
 
         elif overlap_mode == "cut":
-            if overlap_side == "new_images":
+            if overlap_side == "next_images":
                 return torch.cat(
                     (
-                        source_images,
-                        new_images[overlap:],
+                        previous_images,
+                        next_images[overlap:],
                     ),
                     dim=0,
                 )
 
             return torch.cat(
                 (
-                    source_images[:-overlap],
-                    new_images,
+                    previous_images[:-overlap],
+                    next_images,
                 ),
                 dim=0,
             )
@@ -560,7 +572,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
     @staticmethod
     def _resample_audio(
         waveform,
-        source_rate,
+        previous_rate,
         target_rate,
     ):
         """
@@ -570,18 +582,18 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
         safely handle files with differing sample rates.
         """
 
-        if source_rate == target_rate:
+        if previous_rate == target_rate:
             return waveform
 
         if waveform.shape[-1] <= 1:
             return waveform
 
-        new_length = max(
+        next_length = max(
             1,
             round(
                 waveform.shape[-1]
                 * target_rate
-                / source_rate
+                / previous_rate
             ),
         )
 
@@ -592,7 +604,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
         waveform = F.interpolate(
             waveform,
-            size=new_length,
+            size=next_length,
             mode="linear",
             align_corners=False,
         )
@@ -601,11 +613,11 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
     @staticmethod
     def _match_audio_channels(
-        source,
-        new,
+        previous_audio,
+        next_audio,
     ):
         """
-        Make the new audio have the same channel count as the source.
+        Make the next audio have the same channel count as the previous audio.
 
         Mono -> stereo:
             duplicate the mono channel.
@@ -614,34 +626,34 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
             average channels.
         """
 
-        source_channels = source.shape[1]
-        new_channels = new.shape[1]
+        previous_channels = previous_audio.shape[1]
+        next_channels = next_audio.shape[1]
 
-        if source_channels == new_channels:
-            return new
+        if previous_channels == next_channels:
+            return next_audio
 
-        if source_channels == 1:
-            return new.mean(
+        if previous_channels == 1:
+            return next_audio.mean(
                 dim=1,
                 keepdim=True,
             )
 
-        if new_channels == 1:
-            return new.expand(
+        if next_channels == 1:
+            return next_audio.expand(
                 -1,
-                source_channels,
+                previous_channels,
                 -1,
             )
 
         # Generic fallback for unusual channel counts.
-        new = new.mean(
+        next_audio = next_audio.mean(
             dim=1,
             keepdim=True,
         )
 
-        return new.expand(
+        return next_audio.expand(
             -1,
-            source_channels,
+            previous_channels,
             -1,
         )
 
@@ -714,8 +726,8 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
     @classmethod
     def merge_audio(
         cls,
-        source_audio,
-        new_audio,
+        previous_audio,
+        next_audio,
         overlap_frames,
         fps,
         overlap_side,
@@ -728,45 +740,45 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
             overlap_frames / fps
 
-        which is then converted to samples using the source audio
+        which is then converted to samples using the previous audio
         sample rate.
         """
 
-        source_waveform, source_rate = (
-            cls._get_audio_components(source_audio)
+        previous_waveform, previous_rate = (
+            cls._get_audio_components(previous_audio)
         )
 
-        new_waveform, new_rate = (
-            cls._get_audio_components(new_audio)
+        next_waveform, next_rate = (
+            cls._get_audio_components(next_audio)
         )
 
         # If only one side contains audio, preserve the available audio.
-        if source_waveform is None:
-            if new_waveform is None:
+        if previous_waveform is None:
+            if next_waveform is None:
                 return None
 
             return {
-                "waveform": new_waveform,
-                "sample_rate": new_rate,
+                "waveform": next_waveform,
+                "sample_rate": next_rate,
             }
 
-        if new_waveform is None:
+        if next_waveform is None:
             return {
-                "waveform": source_waveform,
-                "sample_rate": source_rate,
+                "waveform": previous_waveform,
+                "sample_rate": previous_rate,
             }
 
         # Make sure both waveforms use the same sample rate.
-        new_waveform = cls._resample_audio(
-            new_waveform,
-            new_rate,
-            source_rate,
+        next_waveform = cls._resample_audio(
+            next_waveform,
+            next_rate,
+            previous_rate,
         )
 
         # Make sure both waveforms use the same number of channels.
-        new_waveform = cls._match_audio_channels(
-            source_waveform,
-            new_waveform,
+        next_waveform = cls._match_audio_channels(
+            previous_waveform,
+            next_waveform,
         )
 
         # Calculate the audio overlap from video frames.
@@ -779,28 +791,28 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
             0,
             round(
                 overlap_seconds
-                * source_rate
+                * previous_rate
             ),
         )
 
         overlap_samples = min(
             overlap_samples,
-            source_waveform.shape[-1],
-            new_waveform.shape[-1],
+            previous_waveform.shape[-1],
+            next_waveform.shape[-1],
         )
 
         if overlap_samples <= 0:
             waveform = torch.cat(
                 (
-                    source_waveform,
-                    new_waveform,
+                    previous_waveform,
+                    next_waveform,
                 ),
                 dim=-1,
             )
 
             return {
                 "waveform": waveform,
-                "sample_rate": source_rate,
+                "sample_rate": previous_rate,
             }
 
         # --------------------------------------------------------------
@@ -809,11 +821,11 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
         if overlap_mode == "cut":
 
-            if overlap_side == "new_images":
+            if overlap_side == "next_images":
                 waveform = torch.cat(
                     (
-                        source_waveform,
-                        new_waveform[
+                        previous_waveform,
+                        next_waveform[
                             :,
                             :,
                             overlap_samples:,
@@ -825,46 +837,46 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
             else:
                 waveform = torch.cat(
                     (
-                        source_waveform[
+                        previous_waveform[
                             :,
                             :,
                             :-overlap_samples,
                         ],
-                        new_waveform,
+                        next_waveform,
                     ),
                     dim=-1,
                 )
 
             return {
                 "waveform": waveform,
-                "sample_rate": source_rate,
+                "sample_rate": previous_rate,
             }
 
         # --------------------------------------------------------------
         # CROSSFADE
         # --------------------------------------------------------------
 
-        if overlap_side == "source":
-            blend_src = source_waveform[
+        if overlap_side == "previous":
+            blend_src = previous_waveform[
                 :,
                 :,
                 -overlap_samples:,
             ]
 
-            blend_dst = new_waveform[
+            blend_dst = next_waveform[
                 :,
                 :,
                 :overlap_samples,
             ]
 
         else:
-            blend_src = new_waveform[
+            blend_src = next_waveform[
                 :,
                 :,
                 :overlap_samples,
             ]
 
-            blend_dst = source_waveform[
+            blend_dst = previous_waveform[
                 :,
                 :,
                 -overlap_samples:,
@@ -909,13 +921,13 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                 + alpha * blend_dst
             )
 
-        prefix = source_waveform[
+        prefix = previous_waveform[
             :,
             :,
             :-overlap_samples,
         ]
 
-        suffix = new_waveform[
+        suffix = next_waveform[
             :,
             :,
             overlap_samples:,
@@ -932,7 +944,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
         return {
             "waveform": waveform,
-            "sample_rate": source_rate,
+            "sample_rate": previous_rate,
         }
 
     # ------------------------------------------------------------------
@@ -1008,12 +1020,12 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
         for index in range(1, len(image_batches_list)):
 
-            new_images = image_batches_list[index]
-            new_audio = audio_list[index]
+            next_images = image_batches_list[index]
+            next_audio = audio_list[index]
 
             merged_images = cls.merge_image_batches(
                 merged_images,
-                new_images,
+                next_images,
                 overlap,
                 overlap_side,
                 overlap_mode,
@@ -1021,7 +1033,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
             merged_audio = cls.merge_audio(
                 merged_audio,
-                new_audio,
+                next_audio,
                 overlap,
                 fps,
                 overlap_side,

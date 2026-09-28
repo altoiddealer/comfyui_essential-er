@@ -82,6 +82,19 @@ class LoadVideosFromFolderList(io.ComfyNode):
                     tooltip="Folder containing the videos to load.",
                 ),
 
+                io.DynamicCombo.Input(
+                    "if_no_audio",
+                    options=[
+                        io.DynamicCombo.Option("return empty audio", []),
+                        io.DynamicCombo.Option("return None", []),
+                    ],
+                    tooltip=(
+                        "What to return when a video contains no audio stream. "
+                        "'return empty audio' provides a valid zero-length AUDIO object; "
+                        "'return None' provides None."
+                    ),
+                ),
+                
                 io.Float.Input(
                     "force_rate",
                     default=0,
@@ -172,6 +185,7 @@ class LoadVideosFromFolderList(io.ComfyNode):
     def execute(
         cls,
         video,
+        if_no_audio,
         force_rate,
         custom_width,
         custom_height,
@@ -227,7 +241,28 @@ class LoadVideosFromFolderList(io.ComfyNode):
             )
 
             video_tensor = result[0]
-            audio = result[2]
+
+            try:
+                # VHS returns a LazyAudioMap here. Force it to resolve while we still control the exception handling.
+                audio = dict(result[2])
+
+            except Exception as e:
+                error_text = str(e)
+
+                if "Output file does not contain any stream" in error_text:
+                    if if_no_audio == "return empty audio":
+                        audio = {
+                            "waveform": torch.zeros(
+                                (1, 2, 0),
+                                dtype=torch.float32,
+                            ),
+                            "sample_rate": 44100,
+                        }
+                    else:
+                        audio = None
+                else:
+                    # Do not hide genuine audio/extraction errors.
+                    raise
 
             if add_label:
                 video_tensor = cls._add_label(

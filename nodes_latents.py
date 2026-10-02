@@ -374,7 +374,7 @@ class SaveH3AVLatentAlt(io.ComfyNode):
         )
 
         _LOG.info(
-            "h3_latent_io: saved AV latent to %s "
+            "ComfyUI-essential-er: saved AV latent to %s "
             "(video=%s, audio=%s)",
             output_path,
             tuple(video.shape),
@@ -470,7 +470,7 @@ class LoadH3AVLatentAlt(io.ComfyNode):
         }
 
         _LOG.info(
-            "h3_latent_io: loaded AV latent from %s "
+            "ComfyUI-essential-er: loaded AV latent from %s "
             "(video=%s, audio=%s)",
             path,
             tuple(video.shape),

@@ -4,9 +4,19 @@
 
 Enhanced versions of existing nodes, or essential nodes surprisingly missing from native ComfyUI.
 
----
-
 ## Included Nodes
+
+| Node Name | Description |
+| --- | --- |
+| [Resize Image/Mask Alt](#resize-imagemask-alt) | Improved version of native ComfyUI node |
+| [Pass or None](#pass-or-none) | Passes the first non-None value through, or outputs None when all inputs are None/not provided |
+| [Load Videos From Folder List](#load-videos-from-folder-list) | Loads all videos from a folder, outputs separate lists of the images and audios |
+| [Merge Image Batch List](#merge-image-batch-list) | Joins all videos in a list with an overlap |
+| [Merge Image Batches and Audio Lists](#merge-image-batches-and-audio-lists) | Joins all videos and audios from lists with an overlap |
+| [Save H3 AV Latent Alt](#save-h3-av-latent-alt) | Save an H3 latent to a ComfyUI path |
+| [Load H3 AV Latent Alt](#load-h3-av-latent-alt) | Load an H3 Latent from a ComfyUI path |
+
+---
 
 ### Resize Image/Mask Alt
 
@@ -62,6 +72,27 @@ This can greatly simplify use cases for joining many similar clips together, whe
 Same as above, but also handles audio!  The audio must be sourced from videos that share the same FPS, and that FPS must be specified in the node input widget.
 
 <img width="1577" height="888" alt="Screenshot 2026-08-08 232456" src="https://github.com/user-attachments/assets/5c59ec5b-61a2-4597-8adb-f12a9b80aeb2" />
+
+
+### Save H3 AV Latent Alt
+
+Saves a MiniMax H3 audio/video latent to a .safetensors file. The video and audio components of the NestedTensor are stored separately so they can be reconstructed when loaded.
+
+`filename_prefix` — Output folder and filename prefix.
+`clip_index` — Optional clip number. Values greater than 0 produce deterministic filenames such as _00001.safetensors; 0 uses an auto-numbered filename.
+
+Outputs — The original latent and the path of the saved file.
+
+### Load H3 AV Latent Alt
+
+Loads a MiniMax H3 audio/video latent from a .safetensors file and reconstructs it as a ComfyUI NestedTensor, making it compatible with standard H3/VAE nodes.
+
+`latent_path` — Absolute path, path relative to ComfyUI's output directory, or a directory containing saved latents.
+`clip_index` — 0 loads the newest .safetensors in the directory; a value greater than 0 loads the corresponding numbered clip (e.g. _00001.safetensors).
+
+Outputs — The latent
+
+---
 
 <details>
   <summary>DEPRECATED NODES</summary>

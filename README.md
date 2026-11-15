@@ -32,8 +32,7 @@ Customized version of native ComfyUI node **Resize Image/Mask**
 | **Pad**                     | Built-in **Pad** method with selectable **black, grey, or white** padding                                | No Pad method; ComfyUI provides a separate **Resize And Pad Image** node with fewer controls |
 | **Combined Controls**       | Resize, crop, pad, conditions, and dimension constraints are available within one node                   | Functionality is split between multiple nodes and has fewer configuration options            |
 
-
-<img width="1151" height="604" alt="Screenshot 2026-08-14 163454" src="https://github.com/user-attachments/assets/9fb6438c-ad0a-4f93-a8e2-a72d0c1bf11f" />
+<img width="1040" height="599" alt="resizeexample" src="https://github.com/user-attachments/assets/ed5eaaa2-787f-4051-8493-ecb4e944e151" />
 
 ---
 
@@ -71,8 +70,7 @@ This can greatly simplify use cases for joining many similar clips together, whe
 
 Same as above, but also handles audio!  The audio must be sourced from videos that share the same FPS, and that FPS must be specified in the node input widget.
 
-<img width="1577" height="888" alt="Screenshot 2026-08-08 232456" src="https://github.com/user-attachments/assets/5c59ec5b-61a2-4597-8adb-f12a9b80aeb2" />
-
+<img width="1275" height="755" alt="merge-example" src="https://github.com/user-attachments/assets/286245f4-1b79-42f1-9171-a3a4f2ec1cfe" />
 
 ### Save H3 AV Latent Alt
 

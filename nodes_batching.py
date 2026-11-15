@@ -23,8 +23,6 @@ class MergeImageBatchList(io.ComfyNode):
                 "blend image batches",
                 "image batch merge",
             ],
-
-            # V3 equivalent of INPUT_IS_LIST = True.
             is_input_list=True,
 
             inputs=[
@@ -360,6 +358,30 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                         "• perceptual_crossfade: Lab color-space image crossfade with equal-power audio fade."
                     ),
                 ),
+
+                io.Int.Input(
+                    "trim_previous",
+                    default=0,
+                    min=0,
+                    max=4096,
+                    step=1,
+                    tooltip=(
+                        "Number of frames to remove from the END of each previous segment before merging. "
+                        "Applied independently of overlap."
+                    ),
+                ),
+
+                io.Int.Input(
+                    "trim_next",
+                    default=0,
+                    min=0,
+                    max=4096,
+                    step=1,
+                    tooltip=(
+                        "Number of frames to remove from the START of each next segment before merging. "
+                        "Applied independently of overlap."
+                    ),
+                ),
             ],
 
             outputs=[
@@ -384,19 +406,37 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
         overlap,
         overlap_side,
         overlap_mode,
+        trim_previous,
+        trim_next,
     ):
+        # Apply segment trimming independently of overlap.
+        if trim_previous > 0:
+            previous_images = previous_images[:-trim_previous]
+
+        previous_available = len(previous_images)
+        if previous_available < overlap:
+            raise ValueError(
+                "Insufficient frames for image batch overlap: "
+                f"available {previous_available} frames, but {overlap} required. "
+            )
+
+        if trim_next > 0:
+            next_images = next_images[trim_next:]
+
+        next_available = len(next_images)
+        if next_available < overlap:
+            raise ValueError(
+                "Insufficient frames for image batch overlap: "
+                f"available {next_available} frames, but {overlap} required. "
+            )
+
         if previous_images.shape[1:3] != next_images.shape[1:3]:
             raise ValueError(
                 f"Previous and next images must have same shape: "
                 f"{previous_images.shape[1:3]} vs {next_images.shape[1:3]}"
             )
 
-        overlap = min(
-            overlap,
-            len(previous_images),
-            len(next_images),
-        )
-
+        overlap = int(overlap)
         if overlap <= 0:
             return torch.cat(
                 (previous_images, next_images),
@@ -732,6 +772,8 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
         fps,
         overlap_side,
         overlap_mode,
+        trim_previous,
+        trim_next,
     ):
         """
         Merge two audio streams using an overlap expressed in video frames.
@@ -751,6 +793,43 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
         next_waveform, next_rate = (
             cls._get_audio_components(next_audio)
         )
+
+        # Apply segment trimming independently of overlap.
+        # Convert frame counts to samples using each stream's own rate.
+
+        if previous_waveform is not None and trim_previous > 0:
+            trim_samples = round(
+                (trim_previous / fps) * previous_rate
+            )
+
+            trim_samples = min(
+                trim_samples,
+                previous_waveform.shape[-1],
+            )
+
+            if trim_samples > 0:
+                previous_waveform = previous_waveform[
+                    :,
+                    :,
+                    :-trim_samples,
+                ]
+
+        if next_waveform is not None and trim_next > 0:
+            trim_samples = round(
+                (trim_next / fps) * next_rate
+            )
+
+            trim_samples = min(
+                trim_samples,
+                next_waveform.shape[-1],
+            )
+
+            if trim_samples > 0:
+                next_waveform = next_waveform[
+                    :,
+                    :,
+                    trim_samples:,
+                ]
 
         # If only one side contains audio, preserve the available audio.
         if previous_waveform is None:
@@ -960,6 +1039,8 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
         overlap,
         overlap_side,
         overlap_mode,
+        trim_previous,
+        trim_next,
     ):
         # Because is_input_list=True, ALL inputs arrive as lists.
 
@@ -975,8 +1056,16 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
         if isinstance(overlap_mode, list):
             overlap_mode = overlap_mode[0]
 
+        if isinstance(trim_previous, list):
+            trim_previous = trim_previous[0]
+
+        if isinstance(trim_next, list):
+            trim_next = trim_next[0]
+
         fps = float(fps)
         overlap = int(overlap)
+        trim_previous = int(trim_previous)
+        trim_next = int(trim_next)
 
         if fps <= 0:
             raise ValueError(
@@ -1029,6 +1118,8 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                 overlap,
                 overlap_side,
                 overlap_mode,
+                trim_previous,
+                trim_next,
             )
 
             merged_audio = cls.merge_audio(
@@ -1038,6 +1129,8 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                 fps,
                 overlap_side,
                 overlap_mode,
+                trim_previous,
+                trim_next,
             )
 
         return io.NodeOutput(

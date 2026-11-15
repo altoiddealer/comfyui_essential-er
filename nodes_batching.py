@@ -205,7 +205,7 @@ class MergeImageBatchList(io.ComfyNode):
             )
 
         elif overlap_mode == "cut":
-            if overlap_side == "next_images":
+            if overlap_side == "next":
                 return torch.cat(
                     (
                         previous_images,
@@ -527,7 +527,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
             )
 
         elif overlap_mode == "cut":
-            if overlap_side == "next_images":
+            if overlap_side == "next":
                 return torch.cat(
                     (
                         previous_images,
@@ -821,7 +821,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
 
         if overlap_mode == "cut":
 
-            if overlap_side == "next_images":
+            if overlap_side == "next":
                 waveform = torch.cat(
                     (
                         previous_waveform,

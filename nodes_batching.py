@@ -36,7 +36,7 @@ class MergeImageBatchList(io.ComfyNode):
                 io.Int.Input(
                     "overlap",
                     default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap", default=13),
-                    min=1,
+                    min=0,
                     max=4096,
                     step=1,
                     tooltip="Number of images to overlap between consecutive batches.",
@@ -319,7 +319,7 @@ class MergeImageBatchAndAudioList(io.ComfyNode):
                 io.Int.Input(
                     "overlap",
                     default=overrides.get("nodes_batching", "merge_image_batch_list", "overlap", default=13),
-                    min=1,
+                    min=0,
                     max=4096,
                     step=1,
                     tooltip=(
